@@ -304,9 +304,17 @@ internal static partial class XlsxReader
                 if (dv.HasValue && dv.Value.Ranges.Count > 0)
                     dataValidations.Add(dv.Value);
             }
+            // Conditional formatting is documented as not supported; we intentionally skip it.
             else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "conditionalFormatting" && reader.NamespaceURI == ns)
             {
-                ReadConditionalFormatting(reader, ns, conditionalFormats);
+                if (!reader.IsEmptyElement)
+                {
+                    while (reader.Read())
+                    {
+                        if (reader.NodeType == XmlNodeType.EndElement && reader.LocalName == "conditionalFormatting" && reader.NamespaceURI == ns)
+                            break;
+                    }
+                }
             }
             else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "hyperlink" && reader.NamespaceURI == ns)
             {
@@ -320,7 +328,24 @@ internal static partial class XlsxReader
                         hyperlinks.Add(new HyperlinkInfo(range.Value.FirstRow, range.Value.FirstCol, range.Value.LastRow, range.Value.LastCol, url));
                 }
             }
-            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "merge" && reader.NamespaceURI == ns)
+            // <mergeCells>/<mergeCell>: merged ranges
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "mergeCells" && reader.NamespaceURI == ns)
+            {
+                if (reader.IsEmptyElement) continue;
+                while (reader.Read())
+                {
+                    if (reader.NodeType == XmlNodeType.EndElement && reader.LocalName == "mergeCells" && reader.NamespaceURI == ns)
+                        break;
+                    if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "mergeCell" && reader.NamespaceURI == ns)
+                    {
+                        var refs = reader.GetAttribute("ref");
+                        if (!string.IsNullOrEmpty(refs) && ParseMergeRef(refs) is { } m)
+                            mergeRanges.Add(new MergeRange(m.FirstRow, m.FirstCol, m.LastRow, m.LastCol));
+                    }
+                }
+            }
+            // <row>: physical row (index, height, hidden)
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "row" && reader.NamespaceURI == ns)
             {
                 if (currentRow.HasValue)
                 {
@@ -328,8 +353,9 @@ internal static partial class XlsxReader
                     rows.Add(currentRow.Value);
                     cells.Clear();
                 }
-                var r = reader.GetAttribute("r");
-                var rowIndex = ParseRowIndex(r);
+
+                var rAttr = reader.GetAttribute("r");
+                var rowIndex = ParseRowIndex(rAttr);
                 var ht = ParseDouble(reader.GetAttribute("ht"));
                 var hidden = reader.GetAttribute("hidden") == "1";
                 currentRow = new RowData(rowIndex, [], ht, hidden);
