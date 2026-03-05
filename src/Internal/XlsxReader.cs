@@ -91,12 +91,14 @@ internal static partial class XlsxReader
         var rels = ReadWorkbookRels(archive);
         var (sheetIds, definedNames) = ReadSheetIdsAndDefinedNames(archive);
         var list = new List<SheetData>();
-        foreach (var (name, rId) in sheetIds)
+        foreach (var sheetId in sheetIds)
         {
+            var name = sheetId.Name;
+            var rId = sheetId.RId;
             if (!rels.TryGetValue(rId, out var path)) continue;
             var (rows, colInfos, mergeRanges, freezePane, rowBreaks, colBreaks, pageSetup, pageMargins, hyperlinks, dataValidations, conditionalFormats) = ReadWorksheet(archive, path);
             var comments = ReadSheetComments(archive, path);
-            list.Add(new SheetData(name, rows, colInfos, mergeRanges, freezePane, rowBreaks, colBreaks, pageSetup, pageMargins, hyperlinks, comments, dataValidations, conditionalFormats));
+            list.Add(new SheetData(name, rows, colInfos, mergeRanges, freezePane, rowBreaks, colBreaks, pageSetup, pageMargins, hyperlinks, comments, dataValidations, conditionalFormats, sheetId.Visibility));
         }
         return (list, definedNames);
     }
@@ -132,9 +134,9 @@ internal static partial class XlsxReader
         return dict;
     }
 
-    private static (List<(string Name, string RId)> SheetIds, List<DefinedNameInfo> DefinedNames) ReadSheetIdsAndDefinedNames(ZipArchive archive)
+    private static (List<SheetIdInfo> SheetIds, List<DefinedNameInfo> DefinedNames) ReadSheetIdsAndDefinedNames(ZipArchive archive)
     {
-        var sheetIds = new List<(string, string)>();
+        var sheetIds = new List<SheetIdInfo>();
         var definedNames = new List<DefinedNameInfo>();
         var entry = archive.GetEntry("xl/workbook.xml");
         if (entry == null) return (sheetIds, definedNames);
@@ -148,8 +150,15 @@ internal static partial class XlsxReader
             {
                 var name = reader.GetAttribute("name") ?? "Sheet";
                 var rId = reader.GetAttribute("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id") ?? reader.GetAttribute("id");
+                var state = reader.GetAttribute("state");
+                byte visibility = state switch
+                {
+                    "hidden" => 0x01,
+                    "veryHidden" => 0x02,
+                    _ => 0x00
+                };
                 if (rId != null)
-                    sheetIds.Add((name, rId));
+                    sheetIds.Add(new SheetIdInfo(name, rId, visibility));
             }
             else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "definedName" && reader.NamespaceURI == ns)
             {
@@ -862,7 +871,8 @@ internal record struct SheetData(
     List<HyperlinkInfo> Hyperlinks,
     List<CommentInfo> Comments,
     List<DataValidationInfo> DataValidations,
-    List<ConditionalFormatInfo> ConditionalFormats);
+    List<ConditionalFormatInfo> ConditionalFormats,
+    byte Visibility);
 
 internal record struct DataValidationInfo(
     List<(int FirstRow, int FirstCol, int LastRow, int LastCol)> Ranges,
@@ -897,3 +907,5 @@ internal record struct MergeRange(int FirstRow, int FirstCol, int LastRow, int L
 internal record struct RowData(int RowIndex, CellData[] Cells, double Height, bool Hidden);
 internal record struct CellData(int Row, int Col, CellKind Kind, CellKind CachedKind, string? Value, int SstIndex, int StyleIndex, string? Formula);
 internal enum CellKind { Empty, Number, String, SharedString, Boolean, Error, Formula }
+
+internal record struct SheetIdInfo(string Name, string RId, byte Visibility);

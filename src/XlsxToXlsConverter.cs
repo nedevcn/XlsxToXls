@@ -153,7 +153,7 @@ public static class XlsxToXlsConverter
             {
                 var sheet = sheets[i];
                 bw = new BiffWriter(buffer.Slice(pos));
-                bw.WriteBoundSheet(offset, TruncateSheetName(sheet.Name));
+                bw.WriteBoundSheet(offset, TruncateSheetName(sheet.Name), sheet.Visibility);
                 var name = TruncateSheetName(sheet.Name);
                 var nameBytes = Math.Min(cp1252.GetByteCount(name), 31);
                 pos += 4 + 4 + 1 + 1 + 1 + nameBytes;
