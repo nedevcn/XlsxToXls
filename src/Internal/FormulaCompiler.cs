@@ -31,11 +31,12 @@ internal static class FormulaCompiler
 
     private static readonly Dictionary<string, ushort> FuncTable = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["COUNT"] = 0x0000,
+        ["IF"] = 0x0001,
         ["SUM"] = 0x0004,
-        ["MIN"] = 0x0006,
-        ["MAX"] = 0x0007,
         ["AVERAGE"] = 0x0005,
-        ["COUNT"] = 0x0000
+        ["MIN"] = 0x0006,
+        ["MAX"] = 0x0007
     };
 
     public static byte[] BuildExplicitListToken(string commaSeparated)
