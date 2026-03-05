@@ -461,7 +461,7 @@ internal static partial class XlsxReader
             }
 
             if (ranges.Count > 0)
-                list.Add(new ConditionalFormatInfo(ranges, ct, cp, f1 ?? string.Empty, f2 ?? string.Empty));
+                list.Add(new ConditionalFormatInfo(new List<(int FirstRow, int FirstCol, int LastRow, int LastCol)>(ranges), ct, cp, f1 ?? string.Empty, f2 ?? string.Empty));
         }
     }
 
