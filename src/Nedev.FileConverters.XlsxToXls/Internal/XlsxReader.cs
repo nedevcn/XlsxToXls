@@ -1,7 +1,7 @@
 using System.IO.Compression;
 using System.Xml;
 
-namespace Nedev.XlsxToXls.Internal;
+namespace Nedev.FileConverters.XlsxToXls.Internal;
 
 /// <summary>
 /// High-performance XLSX reader using XmlReader (streaming) and ZipArchive.

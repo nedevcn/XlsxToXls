@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
 
-namespace Nedev.XlsxToXls.Internal;
+namespace Nedev.FileConverters.XlsxToXls.Internal;
 
 /// <summary>
 /// Writes OLE Compound File Binary Format (CFB) - zero allocations for performance.

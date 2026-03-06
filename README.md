@@ -1,14 +1,19 @@
-# Nedev.XlsxToXls
+# Nedev.FileConverters.XlsxToXls
 
-A high-performance **XLSX → XLS** converter library for .NET 10 with **zero third-party dependencies**. It reads Office Open XML (`.xlsx`) workbooks and writes Excel 97–2003 binary (`.xls`, BIFF8) using only built-in BCL types.
+![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg) ![NuGet](https://img.shields.io/nuget/v/Nedev.FileConverters.XlsxToXls)
+
+A high-performance **XLSX → XLS** converter library as part of the `Nedev.FileConverters` ecosystem. Targets **.NET 8.0** and **.NET Standard 2.1** with **zero third-party dependencies** (core package dependency is optional and pulled in via NuGet). It reads Office Open XML (`.xlsx`) workbooks and writes Excel 97–2003 binary (`.xls`, BIFF8) using only built-in BCL types.
 
 ---
 
 ## Features
 
+- **Library + CLI** — core converter available as DLL and command‑line tool (see below).
+- **Core package integration** — the library implements `IFileConverter` and is decorated with `FileConverterAttribute` so it plugs into `Nedev.FileConverters.Core`’s discovery/DI helpers. Both the DLL and the CLI automatically register the converter via `ServiceCollectionExtensions.AddFileConverter`.
+
 - **Zero third-party dependencies** — uses only `System.IO.Compression`, `System.Xml`, `System.Buffers`, and core .NET types.
 - **Performance-oriented** — `ArrayPool<byte>` for buffers, streaming `XmlReader` for XLSX, `Span<byte>` for BIFF output to minimize allocations.
-- **.NET 10** — targets `net10.0`; build from the `src` folder.
+- **Multi‑targeted** — builds for `net8.0` and `netstandard2.1`; see Build instructions above.
 
 ---
 
@@ -24,7 +29,7 @@ A high-performance **XLSX → XLS** converter library for .NET 10 with **zero th
 ### Example
 
 ```csharp
-using Nedev.XlsxToXls;
+using Nedev.FileConverters.XlsxToXls;
 
 // Stream-based
 using var xlsx = File.OpenRead("input.xlsx");
@@ -34,6 +39,18 @@ XlsxToXlsConverter.Convert(xlsx, xls);
 // File-based
 XlsxToXlsConverter.ConvertFile("input.xlsx", "output.xls");
 ```
+
+### CLI usage
+
+```bash
+# build the CLI project first (see Build section)
+cd src/Nedev.FileConverters.XlsxToXls.Cli
+dotnet run -- ../path/to/input.xlsx ../path/to/output.xls
+# or after publishing:
+# XlsxToXls.Cli.exe input.xlsx output.xls
+```
+
+The CLI version uses the core package’s abstraction; it registers `XlsxToXlsConverter.FileConverterAdapter` with `ServiceCollection` and resolves an `IFileConverter` instance, demonstrating seamless plugin-style integration.
 
 ---
 
@@ -130,20 +147,29 @@ XlsxToXlsConverter.ConvertFile("input.xlsx", "output.xls");
 From the repository root:
 
 ```bash
-cd src
+cd src/Nedev.FileConverters.XlsxToXls
+dotnet build
+cd ../Nedev.FileConverters.XlsxToXls.Cli
 dotnet build
 ```
 
-Output: `src/bin/Debug/net10.0/Nedev.XlsxToXls.dll`.
+Outputs are produced for both target frameworks, e.g.:
+
+```
+src/Nedev.FileConverters.XlsxToXls/bin/Debug/net8.0/Nedev.FileConverters.XlsxToXls.dll
+src/Nedev.FileConverters.XlsxToXls/bin/Debug/netstandard2.1/Nedev.FileConverters.XlsxToXls.dll
+src/Nedev.FileConverters.XlsxToXls.Cli/bin/Debug/net8.0/Nedev.FileConverters.XlsxToXls.Cli.dll
+```
+
 
 ---
 
 ## Project layout
 
 ```
-XlsxToXls/
+Nedev.FileConverters.XlsxToXls/
 ├── src/
-│   ├── XlsxToXls.csproj
+│   ├── Nedev.FileConverters.XlsxToXls.csproj
 │   ├── XlsxToXlsConverter.cs   # Public API + BIFF orchestration
 │   └── Internal/
 │       ├── BiffWriter.cs      # BIFF8 record writing
@@ -158,4 +184,8 @@ XlsxToXls/
 
 ## License
 
-See repository or package metadata for license terms.
+This project is licensed under the **MIT** license. See [LICENSE](LICENSE) for details.
+
+## NuGet
+
+The library is published as `Nedev.FileConverters.XlsxToXls` (version 0.1.0 at time of writing) and depends on `Nedev.FileConverters.Core` when that package is installed.

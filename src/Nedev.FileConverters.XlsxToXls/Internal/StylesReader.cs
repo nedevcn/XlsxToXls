@@ -2,7 +2,7 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Xml;
 
-namespace Nedev.XlsxToXls.Internal;
+namespace Nedev.FileConverters.XlsxToXls.Internal;
 
 internal static class StylesReader
 {
@@ -45,7 +45,7 @@ internal static class StylesReader
 
         styles.EnsureMinFonts();
         if (styles.CellXfs.Count == 0)
-            styles.CellXfs.Add(new CellXfInfo(0, 0, 0, 0));
+            styles.CellXfs.Add(new CellXfInfo(0, 0, 0, 0, 0, 2, false, 0, true, false));
         return styles;
     }
 

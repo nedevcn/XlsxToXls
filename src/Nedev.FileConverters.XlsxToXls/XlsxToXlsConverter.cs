@@ -1,9 +1,13 @@
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Text;
-using Nedev.XlsxToXls.Internal;
+using Nedev.FileConverters.XlsxToXls.Internal;
+using Nedev.FileConverters.Core; // core dependency integrated
 
-namespace Nedev.XlsxToXls;
+namespace Nedev.FileConverters.XlsxToXls;
+
+using Nedev.FileConverters.Core;
+using System.IO;
 
 /// <summary>
 /// High-performance XLSX to XLS converter with zero third-party dependencies.
@@ -11,6 +15,19 @@ namespace Nedev.XlsxToXls;
 /// </summary>
 public static class XlsxToXlsConverter
 {
+    // integration adapter for Nedev.FileConverters.Core
+    [FileConverter("xlsx", "xls")]
+    public class FileConverterAdapter : IFileConverter
+    {
+        public Stream Convert(Stream input)
+        {
+            var output = new MemoryStream();
+            XlsxToXlsConverter.Convert(input, output);
+            output.Position = 0;
+            return output;
+        }
+    }
+
     /// <summary>
     /// Converts XLSX stream to XLS format and writes to output stream.
     /// </summary>

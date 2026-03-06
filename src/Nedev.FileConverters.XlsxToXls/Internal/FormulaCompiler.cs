@@ -2,7 +2,7 @@ using System.Buffers.Binary;
 using System.Globalization;
 using System.Text;
 
-namespace Nedev.XlsxToXls.Internal;
+namespace Nedev.FileConverters.XlsxToXls.Internal;
 
 internal static class FormulaCompiler
 {
@@ -268,7 +268,7 @@ internal static class FormulaCompiler
         }
         outBytes.Add(0x1F);
         Span<byte> tmp = stackalloc byte[8];
-        BinaryPrimitives.WriteDoubleLittleEndian(tmp, n);
+        BufferHelpers.WriteDoubleLittleEndian(tmp, n);
         for (var i = 0; i < 8; i++) outBytes.Add(tmp[i]);
     }
 

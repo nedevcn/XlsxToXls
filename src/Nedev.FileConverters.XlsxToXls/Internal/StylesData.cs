@@ -1,4 +1,4 @@
-namespace Nedev.XlsxToXls.Internal;
+namespace Nedev.FileConverters.XlsxToXls.Internal;
 
 internal sealed class StylesData
 {

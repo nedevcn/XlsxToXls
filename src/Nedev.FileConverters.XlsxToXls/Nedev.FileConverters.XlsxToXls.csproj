@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;netstandard2.1</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Nedev.FileConverters.XlsxToXls</RootNamespace>
+    <AssemblyName>Nedev.FileConverters.XlsxToXls</AssemblyName>
+    <PackageId>Nedev.FileConverters.XlsxToXls</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Nedev</Authors>
+    <Description>High-performance XLSX → XLS converter; part of Nedev.FileConverters ecosystem.</Description>
+    <PackageTags>excel;xlsx;xls;converter;biff;fileconverters</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/nedev/fileconverters</RepositoryUrl>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Optimize>true</Optimize>
+    <!-- include readme from solution root -->
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Nedev.FileConverters.Core" Version="0.1.0" />
+  </ItemGroup>
+
+  <!-- ensure the readme file is packed -->
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+</Project>

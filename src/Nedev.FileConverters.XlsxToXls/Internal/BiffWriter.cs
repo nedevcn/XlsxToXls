@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
 
-namespace Nedev.XlsxToXls.Internal;
+namespace Nedev.FileConverters.XlsxToXls.Internal;
 
 /// <summary>
 /// Writes BIFF8 records for Excel .xls format. High-performance, minimal allocations.
@@ -360,28 +360,28 @@ internal ref struct BiffWriter
     public void WriteLeftMargin(double inches)
     {
         WriteRecordHeader(0x0026, 8);
-        BinaryPrimitives.WriteDoubleLittleEndian(_buffer.Slice(_position), inches);
+        BufferHelpers.WriteDoubleLittleEndian(_buffer.Slice(_position), inches);
         _position += 8;
     }
 
     public void WriteRightMargin(double inches)
     {
         WriteRecordHeader(0x0027, 8);
-        BinaryPrimitives.WriteDoubleLittleEndian(_buffer.Slice(_position), inches);
+        BufferHelpers.WriteDoubleLittleEndian(_buffer.Slice(_position), inches);
         _position += 8;
     }
 
     public void WriteTopMargin(double inches)
     {
         WriteRecordHeader(0x0028, 8);
-        BinaryPrimitives.WriteDoubleLittleEndian(_buffer.Slice(_position), inches);
+        BufferHelpers.WriteDoubleLittleEndian(_buffer.Slice(_position), inches);
         _position += 8;
     }
 
     public void WriteBottomMargin(double inches)
     {
         WriteRecordHeader(0x0029, 8);
-        BinaryPrimitives.WriteDoubleLittleEndian(_buffer.Slice(_position), inches);
+        BufferHelpers.WriteDoubleLittleEndian(_buffer.Slice(_position), inches);
         _position += 8;
     }
 
@@ -436,9 +436,9 @@ internal ref struct BiffWriter
         _position += 2;
         BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), 600);
         _position += 2;
-        BinaryPrimitives.WriteDoubleLittleEndian(_buffer.Slice(_position), headerMargin);
+        BufferHelpers.WriteDoubleLittleEndian(_buffer.Slice(_position), headerMargin);
         _position += 8;
-        BinaryPrimitives.WriteDoubleLittleEndian(_buffer.Slice(_position), footerMargin);
+        BufferHelpers.WriteDoubleLittleEndian(_buffer.Slice(_position), footerMargin);
         _position += 8;
         BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), 1);
         _position += 2;
@@ -700,7 +700,7 @@ internal ref struct BiffWriter
         _position += 2;
         BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), xfIndex);
         _position += 2;
-        BinaryPrimitives.WriteDoubleLittleEndian(_buffer.Slice(_position), value);
+        BufferHelpers.WriteDoubleLittleEndian(_buffer.Slice(_position), value);
         _position += 8;
     }
 
@@ -718,7 +718,7 @@ internal ref struct BiffWriter
         // FormulaValue (8 bytes)
         if (cachedKind == CellKind.Number)
         {
-            BinaryPrimitives.WriteDoubleLittleEndian(_buffer.Slice(_position), cachedNumber);
+            BufferHelpers.WriteDoubleLittleEndian(_buffer.Slice(_position), cachedNumber);
         }
         else
         {
