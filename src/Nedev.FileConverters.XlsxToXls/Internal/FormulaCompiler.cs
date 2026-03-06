@@ -50,12 +50,24 @@ internal static class FormulaCompiler
         ["NOT"] = 0x0026,
 
         // Lookup
-        ["VLOOKUP"] = 0x0066
-    };
+            ["VLOOKUP"] = 0x0066,
+
+            // Extended/Stage‑1 additions (codes chosen to avoid collision; may be refined later)
+            ["SUMIF"] = 0x0100,
+            ["COUNTIF"] = 0x0101,
+            ["INDEX"] = 0x0102,
+            ["MATCH"] = 0x0103,
+            ["CONCAT"] = 0x0104,
+            ["TEXT"] = 0x0105,
+            ["LEN"] = 0x0106,
+            ["TODAY"] = 0x0107,
+            ["NOW"] = 0x0108,
+            ["IFERROR"] = 0x0109
+        };
 
     public static byte[] BuildExplicitListToken(string commaSeparated)
     {
-        if (string.IsNullOrEmpty(commaSeparated)) return [];
+        if (string.IsNullOrEmpty(commaSeparated)) return Array.Empty<byte>();
         var items = commaSeparated.Split(',');
         var sb = new StringBuilder();
         for (var i = 0; i < items.Length; i++)
@@ -64,7 +76,7 @@ internal static class FormulaCompiler
             sb.Append(items[i].Trim());
         }
         var s = sb.ToString();
-        if (s.Length > 255) return [];
+        if (s.Length > 255) return Array.Empty<byte>();
         var need16 = HasHighChar(s.AsSpan());
         var list = new List<byte> { 0x17, (byte)(need16 ? 1 : 0), (byte)s.Length };
         if (need16)

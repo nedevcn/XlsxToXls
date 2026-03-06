@@ -42,6 +42,33 @@ namespace Nedev.FileConverters.XlsxToXls.Tests
             Assert.True(Array.Exists(bytes, b => b == 0x24));
         }
 
+        [Theory]
+        [InlineData("SUMIF(A1:A5,\">0\",B1:B5)")]
+        [InlineData("COUNTIF(C1:C10,\"foo\")")]
+        [InlineData("INDEX(A1:B2,2,1)")]
+        [InlineData("MATCH(3,A1:A5,0)")]
+        [InlineData("CONCAT(\"a\",\"b\")")]
+        [InlineData("TEXT(123,\"0\")")]
+        [InlineData("LEN(\"hello\")")]
+        [InlineData("TODAY()")]
+        [InlineData("NOW()")]
+        [InlineData("IFERROR(1/0,\"err\")")]
+        public void NewFunctionsCompile(string formula)
+        {
+            var bytes = XlsxToXlsConverter.CompileFormulaTokens("=" + formula, 0, new Dictionary<string, int>());
+            Assert.NotNull(bytes);
+            Assert.NotEmpty(bytes);
+        }
+
+        [Fact]
+        public void ExplicitListTokenBuilderProducesExpectedFormat()
+        {
+            var tok = FormulaCompiler.BuildExplicitListToken("a,b,c");
+            Assert.NotEmpty(tok);
+            // first byte should be 0x17 (tStr)
+            Assert.Equal(0x17, tok[0]);
+        }
+
         [Fact]
         public void WriteSheetLogsOnCompileException()
         {
