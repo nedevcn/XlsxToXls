@@ -43,17 +43,123 @@ namespace Nedev.FileConverters.XlsxToXls.Tests
         }
 
         [Theory]
+        // Statistical functions
         [InlineData("SUMIF(A1:A5,\">0\",B1:B5)")]
         [InlineData("COUNTIF(C1:C10,\"foo\")")]
+        [InlineData("AVERAGEIF(A1:A10,\">0\")")]
+        [InlineData("SUMIFS(B1:B10,A1:A10,\">0\")")]
+        [InlineData("COUNTIFS(A1:A10,\">0\",B1:B10,\"<100\")")]
+        [InlineData("AVERAGEIFS(B1:B10,A1:A10,\">0\")")]
+        [InlineData("MAXIFS(B1:B10,A1:A10,\">0\")")]
+        [InlineData("MINIFS(B1:B10,A1:A10,\">0\")")]
+        [InlineData("STDEV(A1:A10)")]
+        [InlineData("STDEVP(A1:A10)")]
+        [InlineData("VAR(A1:A10)")]
+        [InlineData("VARP(A1:A10)")]
+        [InlineData("MEDIAN(A1:A10)")]
+        [InlineData("MODE(A1:A10)")]
+        [InlineData("RANK(A1,A1:A10)")]
+        [InlineData("PERCENTILE(A1:A10,0.5)")]
+        // Lookup functions
         [InlineData("INDEX(A1:B2,2,1)")]
         [InlineData("MATCH(3,A1:A5,0)")]
+        [InlineData("HLOOKUP(\"x\",A1:C3,2,FALSE)")]
+        [InlineData("INDIRECT(\"A1\")")]
+        [InlineData("OFFSET(A1,1,1)")]
+        [InlineData("CHOOSE(1,A1,B1,C1)")]
+        [InlineData("ROW()")]
+        [InlineData("COLUMN()")]
+        [InlineData("ROWS(A1:A10)")]
+        [InlineData("COLUMNS(A1:J1)")]
+        // Text functions
         [InlineData("CONCAT(\"a\",\"b\")")]
         [InlineData("TEXT(123,\"0\")")]
         [InlineData("LEN(\"hello\")")]
+        [InlineData("LEFT(\"hello\",3)")]
+        [InlineData("RIGHT(\"hello\",3)")]
+        [InlineData("MID(\"hello\",2,3)")]
+        [InlineData("FIND(\"l\",\"hello\")")]
+        [InlineData("SUBSTITUTE(\"hello\",\"l\",\"x\")")]
+        [InlineData("TRIM(\"  hello  \")")]
+        [InlineData("UPPER(\"hello\")")]
+        [InlineData("LOWER(\"HELLO\")")]
+        [InlineData("PROPER(\"hello world\")")]
+        [InlineData("VALUE(\"123\")")]
+        [InlineData("REPT(\"*\",5)")]
+        [InlineData("TEXTJOIN(\",\",TRUE,A1:A5)")]
+        // Date & Time functions
         [InlineData("TODAY()")]
         [InlineData("NOW()")]
+        [InlineData("DATE(2024,1,1)")]
+        [InlineData("TIME(12,30,0)")]
+        [InlineData("DAY(A1)")]
+        [InlineData("MONTH(A1)")]
+        [InlineData("YEAR(A1)")]
+        [InlineData("WEEKDAY(A1)")]
+        [InlineData("HOUR(A1)")]
+        [InlineData("MINUTE(A1)")]
+        [InlineData("SECOND(A1)")]
+        [InlineData("DATEDIF(A1,A2,\"D\")")]
+        [InlineData("EDATE(A1,1)")]
+        [InlineData("EOMONTH(A1,0)")]
+        [InlineData("NETWORKDAYS(A1,A2)")]
+        [InlineData("WORKDAY(A1,5)")]
+        // Math functions
+        [InlineData("MOD(10,3)")]
+        [InlineData("POWER(2,3)")]
+        [InlineData("SQRT(16)")]
+        [InlineData("EXP(1)")]
+        [InlineData("LN(10)")]
+        [InlineData("LOG10(100)")]
+        // Financial functions
+        [InlineData("PMT(0.05/12,360,200000)")]
+        [InlineData("FV(0.05/12,360,-1000)")]
+        [InlineData("PV(0.05/12,360,-1000)")]
+        [InlineData("NPV(0.1,A1:A5)")]
+        [InlineData("IRR(A1:A5)")]
+        [InlineData("RATE(360,-1000,200000)")]
+        [InlineData("NPER(0.05/12,-1000,200000)")]
+        [InlineData("IPMT(0.05/12,1,360,200000)")]
+        [InlineData("PPMT(0.05/12,1,360,200000)")]
+        [InlineData("CUMIPMT(0.05/12,360,200000,1,12,0)")]
+        [InlineData("CUMPRINC(0.05/12,360,200000,1,12,0)")]
+        [InlineData("DB(10000,1000,5,1)")]
+        [InlineData("DDB(10000,1000,5,1)")]
+        [InlineData("SLN(10000,1000,5)")]
+        [InlineData("SYD(10000,1000,5,1)")]
+        [InlineData("VDB(10000,1000,5,1,2)")]
+        // Information functions
+        [InlineData("ISBLANK(A1)")]
+        [InlineData("ISNUMBER(A1)")]
+        [InlineData("ISTEXT(A1)")]
+        [InlineData("ISLOGICAL(A1)")]
+        [InlineData("ISERROR(A1)")]
+        [InlineData("ISNA(A1)")]
+        // Logical functions
+        [InlineData("TRUE")]
+        [InlineData("FALSE")]
         [InlineData("IFERROR(1/0,\"err\")")]
-        public void NewFunctionsCompile(string formula)
+        [InlineData("IFNA(A1,0)")]
+        [InlineData("ANDIFS(A1:A10,\">0\")")]
+        [InlineData("ORIFS(A1:A10,\">0\")")]
+        [InlineData("SWITCH(A1,1,\"One\",2,\"Two\",\"Other\")")]
+        [InlineData("IFS(A1>0,\"Positive\",A1<0,\"Negative\",TRUE,\"Zero\")")]
+        // Database functions
+        [InlineData("DSUM(A1:C10,\"Sales\",E1:F2)")]
+        [InlineData("DCOUNT(A1:C10,\"Sales\",E1:F2)")]
+        [InlineData("DCOUNTA(A1:C10,\"Sales\",E1:F2)")]
+        [InlineData("DAVERAGE(A1:C10,\"Sales\",E1:F2)")]
+        [InlineData("DMIN(A1:C10,\"Sales\",E1:F2)")]
+        [InlineData("DMAX(A1:C10,\"Sales\",E1:F2)")]
+        [InlineData("DSTDEV(A1:C10,\"Sales\",E1:F2)")]
+        [InlineData("DSTDEVP(A1:C10,\"Sales\",E1:F2)")]
+        [InlineData("DVAR(A1:C10,\"Sales\",E1:F2)")]
+        [InlineData("DVARP(A1:C10,\"Sales\",E1:F2)")]
+        [InlineData("DGET(A1:C10,\"Sales\",E1:F2)")]
+        // Additional aggregation
+        [InlineData("COUNTA(A1:A10)")]
+        [InlineData("PRODUCT(A1:A10)")]
+        public void ExtendedFunctionsCompile(string formula)
         {
             var bytes = XlsxToXlsConverter.CompileFormulaTokens("=" + formula, 0, new Dictionary<string, int>());
             Assert.NotNull(bytes);
@@ -157,7 +263,7 @@ namespace Nedev.FileConverters.XlsxToXls.Tests
             };
             var sheet = new Internal.SheetData("Sheet1", rows, new List<Internal.ColInfo>(), new List<Internal.MergeRange>(), null,
                 new List<int>(), new List<int>(), null, null, null, null, new List<Internal.HyperlinkInfo>(), new List<Internal.CommentInfo>(),
-                new List<Internal.DataValidationInfo>(), new List<Internal.ConditionalFormatInfo>(), 0, new List<Internal.ChartData>());
+                new List<Internal.DataValidationInfo>(), new List<Internal.ConditionalFormatInfo>(), 0, new List<Internal.ChartData>(), null, new List<Internal.ShapeInfo>());
             var shared = new List<ReadOnlyMemory<char>>();
             var styles = new Internal.StylesData();
             styles.EnsureMinFonts();

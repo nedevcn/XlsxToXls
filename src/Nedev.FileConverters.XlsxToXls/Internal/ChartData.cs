@@ -4,6 +4,49 @@ namespace Nedev.FileConverters.XlsxToXls.Internal;
 /// Represents chart data for BIFF8 format conversion.
 /// Contains all information needed to render an Excel chart in XLS format.
 /// </summary>
+/// <remarks>
+/// <para><b>Example - Creating a simple column chart:</b></para>
+/// <code language="csharp">
+/// var chart = new ChartData
+/// {
+///     Name = "SalesChart",
+///     Type = ChartType.Column,
+///     Title = new ChartTitle { Text = "Monthly Sales" },
+///     Position = new ChartPosition { X = 100, Y = 100, Width = 500, Height = 350 },
+///     Series = new List&lt;ChartSeries&gt;
+///     {
+///         new ChartSeries
+///         {
+///             Name = "Q1 Sales",
+///             SeriesIndex = 0,
+///             ValuesRange = new ChartRange { SheetName = "Sheet1", FirstRow = 1, FirstCol = 1, LastRow = 3, LastCol = 1 },
+///             CategoriesRange = new ChartRange { SheetName = "Sheet1", FirstRow = 1, FirstCol = 0, LastRow = 3, LastCol = 0 }
+///         }
+///     },
+///     Legend = new ChartLegend { Position = LegendPosition.Right, Show = true }
+/// };
+/// </code>
+/// <para><b>Example - Creating a line chart with data labels:</b></para>
+/// <code language="csharp">
+/// var lineChart = new ChartData
+/// {
+///     Name = "TrendChart",
+///     Type = ChartType.Line,
+///     Title = new ChartTitle { Text = "Sales Trend" },
+///     Series = new List&lt;ChartSeries&gt;
+///     {
+///         new ChartSeries
+///         {
+///             Name = "2024",
+///             SeriesIndex = 0,
+///             DataLabels = new DataLabels { ShowValue = true, Position = LabelPosition.Above },
+///             LineStyle = LineStyle.Solid,
+///             MarkerStyle = MarkerStyle.Circle
+///         }
+///     }
+/// };
+/// </code>
+/// </remarks>
 public sealed class ChartData
 {
     /// <summary>Gets or sets the chart name.</summary>
@@ -27,11 +70,20 @@ public sealed class ChartData
     /// <summary>Gets or sets the value (Y) axis.</summary>
     public ChartAxis? ValueAxis { get; set; }
 
+    /// <summary>Gets or sets the secondary value (Y) axis for combo charts.</summary>
+    public ChartAxis? SecondaryValueAxis { get; set; }
+
     /// <summary>Gets or sets the chart legend.</summary>
     public ChartLegend? Legend { get; set; }
 
     /// <summary>Gets or sets the plot area configuration.</summary>
     public ChartPlotArea PlotArea { get; set; } = new();
+
+    /// <summary>Gets or sets the data table configuration.</summary>
+    public ChartDataTable? DataTable { get; set; }
+
+    /// <summary>Gets or sets whether this is a combo chart with multiple types.</summary>
+    public bool IsComboChart { get; set; }
 }
 
 /// <summary>Supported chart types for BIFF8 format.</summary>
@@ -49,10 +101,38 @@ public enum ChartType : ushort
     Scatter = 0x0005,
     /// <summary>Radar chart.</summary>
     Radar = 0x0006,
+    /// <summary>Radar chart with markers.</summary>
+    RadarWithMarkers = 0x0007,
     /// <summary>Column chart (default).</summary>
     Column = 0x0008,
     /// <summary>Doughnut chart.</summary>
-    Doughnut = 0x0009
+    Doughnut = 0x0009,
+    /// <summary>Bubble chart.</summary>
+    Bubble = 0x000A,
+    /// <summary>Surface chart.</summary>
+    Surface = 0x000B,
+    /// <summary>Surface wireframe chart.</summary>
+    SurfaceWireframe = 0x000C,
+    /// <summary>Stock high-low-close chart.</summary>
+    StockHLC = 0x000D,
+    /// <summary>Stock open-high-low-close chart.</summary>
+    StockOHLC = 0x000E,
+    /// <summary>Stock volume-high-low-close chart.</summary>
+    StockVHLC = 0x000F,
+    /// <summary>Stock volume-open-high-low-close chart.</summary>
+    StockVOHLC = 0x0010,
+    /// <summary>Cone column chart.</summary>
+    ConeColumn = 0x0011,
+    /// <summary>Cone bar chart.</summary>
+    ConeBar = 0x0012,
+    /// <summary>Cylinder column chart.</summary>
+    CylinderColumn = 0x0013,
+    /// <summary>Cylinder bar chart.</summary>
+    CylinderBar = 0x0014,
+    /// <summary>Pyramid column chart.</summary>
+    PyramidColumn = 0x0015,
+    /// <summary>Pyramid bar chart.</summary>
+    PyramidBar = 0x0016
 }
 
 /// <summary>Defines the position and dimensions of a chart.</summary>
@@ -100,6 +180,15 @@ public sealed class ChartSeries
 
     /// <summary>Gets or sets the bubble index. Default is -1.</summary>
     public int BubbleIndex { get; set; } = -1;
+
+    /// <summary>Gets or sets the bubble sizes range (for bubble charts).</summary>
+    public ChartRange? BubbleSizes { get; set; }
+
+    /// <summary>Gets or sets the X values range (for scatter and bubble charts).</summary>
+    public ChartRange? XValues { get; set; }
+
+    /// <summary>Gets or sets the Y values range (for scatter and bubble charts).</summary>
+    public ChartRange? YValues { get; set; }
 
     /// <summary>Gets or sets the data labels configuration.</summary>
     public DataLabels? DataLabels { get; set; }
@@ -507,4 +596,112 @@ public sealed class ChartPlotArea
 
     /// <summary>Gets or sets whether to vary colors by data point.</summary>
     public bool VaryColors { get; set; }
+
+    /// <summary>Gets or sets the first slice angle (for pie/doughnut charts). Default is 0.</summary>
+    public int FirstSliceAngle { get; set; }
+
+    /// <summary>Gets or sets the hole size percentage (for doughnut charts). Default is 50.</summary>
+    public int HoleSize { get; set; } = 50;
+
+    /// <summary>Gets or sets the bubble scale percentage (for bubble charts). Default is 100.</summary>
+    public int BubbleScale { get; set; } = 100;
+
+    /// <summary>Gets or sets whether to show negative bubbles (for bubble charts).</summary>
+    public bool ShowNegativeBubbles { get; set; }
+
+    /// <summary>Gets or sets the radar style (for radar charts). Default is Marker.</summary>
+    public RadarStyle RadarStyle { get; set; } = RadarStyle.Marker;
+
+    /// <summary>Gets or sets whether to display the radar axis labels.</summary>
+    public bool RadarAxisLabels { get; set; } = true;
+
+    /// <summary>Gets or sets the stock up/down bar settings (for stock charts).</summary>
+    public StockSettings? StockSettings { get; set; }
+
+    /// <summary>Gets or sets the surface view settings (for surface charts).</summary>
+    public SurfaceViewSettings? SurfaceViewSettings { get; set; }
+}
+
+/// <summary>Radar chart styles.</summary>
+public enum RadarStyle : byte
+{
+    /// <summary>Radar chart with markers.</summary>
+    Marker = 0,
+    /// <summary>Radar chart filled.</summary>
+    Filled = 1
+}
+
+/// <summary>Settings for stock charts.</summary>
+public sealed class StockSettings
+{
+    /// <summary>Gets or sets whether to display drop lines. Default is true.</summary>
+    public bool ShowDropLines { get; set; } = true;
+
+    /// <summary>Gets or sets whether to display high-low lines. Default is true.</summary>
+    public bool ShowHighLowLines { get; set; } = true;
+
+    /// <summary>Gets or sets whether to display open-close bars. Default is true.</summary>
+    public bool ShowOpenCloseBars { get; set; } = true;
+
+    /// <summary>Gets or sets the up bar color.</summary>
+    public ChartColor UpBarColor { get; set; } = ChartColor.White;
+
+    /// <summary>Gets or sets the down bar color.</summary>
+    public ChartColor DownBarColor { get; set; } = ChartColor.Black;
+
+    /// <summary>Gets or sets the line color for high-low lines.</summary>
+    public ChartColor HighLowLineColor { get; set; } = ChartColor.Black;
+}
+
+/// <summary>View settings for surface charts.</summary>
+public sealed class SurfaceViewSettings
+{
+    /// <summary>Gets or sets the rotation angle around the X axis. Default is 15.</summary>
+    public int RotationX { get; set; } = 15;
+
+    /// <summary>Gets or sets the rotation angle around the Y axis. Default is 20.</summary>
+    public int RotationY { get; set; } = 20;
+
+    /// <summary>Gets or sets the perspective angle. Default is 30.</summary>
+    public int Perspective { get; set; } = 30;
+
+    /// <summary>Gets or sets the height percentage. Default is 100.</summary>
+    public int HeightPercent { get; set; } = 100;
+
+    /// <summary>Gets or sets the depth percentage. Default is 100.</summary>
+    public int DepthPercent { get; set; } = 100;
+
+    /// <summary>Gets or sets whether to use right angle axes.</summary>
+    public bool RightAngleAxes { get; set; } = true;
+
+    /// <summary>Gets or sets whether the chart is autoscaling.</summary>
+    public bool AutoScaling { get; set; } = true;
+
+    /// <summary>Gets or sets the wall thickness. Default is 0.</summary>
+    public int WallThickness { get; set; }
+
+    /// <summary>Gets or sets the floor thickness. Default is 0.</summary>
+    public int FloorThickness { get; set; }
+}
+
+/// <summary>Represents a data table displayed below the chart.</summary>
+public sealed class ChartDataTable
+{
+    /// <summary>Gets or sets whether to show the data table. Default is true.</summary>
+    public bool Show { get; set; } = true;
+
+    /// <summary>Gets or sets whether to show legend keys. Default is true.</summary>
+    public bool ShowLegendKeys { get; set; } = true;
+
+    /// <summary>Gets or sets whether to show horizontal border. Default is true.</summary>
+    public bool HasHorizontalBorder { get; set; } = true;
+
+    /// <summary>Gets or sets whether to show vertical border. Default is true.</summary>
+    public bool HasVerticalBorder { get; set; } = true;
+
+    /// <summary>Gets or sets whether to show outline border. Default is true.</summary>
+    public bool HasOutlineBorder { get; set; } = true;
+
+    /// <summary>Gets or sets the font size for the data table. Default is 10.</summary>
+    public double FontSize { get; set; } = 10;
 }

@@ -184,6 +184,47 @@ internal static class ChartReader
                     chart.Type = ChartType.Doughnut;
                     ReadDoughnutChart(reader, ns, chart);
                     break;
+                case "bubbleChart":
+                    chart.Type = ChartType.Bubble;
+                    ReadBubbleChart(reader, ns, chart);
+                    break;
+                case "surfaceChart":
+                case "surface3DChart":
+                    chart.Type = ChartType.Surface;
+                    ReadSurfaceChart(reader, ns, chart);
+                    break;
+                case "stockChart":
+                    chart.Type = ChartType.StockOHLC;
+                    ReadStockChart(reader, ns, chart);
+                    break;
+                case "area3DChart":
+                    chart.Type = ChartType.Area;
+                    ReadAreaChart(reader, ns, chart);
+                    break;
+                case "bar3DChart":
+                    chart.Type = ChartType.Bar;
+                    ReadBarChart(reader, ns, chart);
+                    break;
+                case "line3DChart":
+                    chart.Type = ChartType.Line;
+                    ReadLineChart(reader, ns, chart);
+                    break;
+                case "column3DChart":
+                    chart.Type = ChartType.Column;
+                    ReadColumnChart(reader, ns, chart);
+                    break;
+                case "cylinderChart":
+                    chart.Type = ChartType.CylinderColumn;
+                    ReadColumnChart(reader, ns, chart);
+                    break;
+                case "coneChart":
+                    chart.Type = ChartType.ConeColumn;
+                    ReadColumnChart(reader, ns, chart);
+                    break;
+                case "pyramidChart":
+                    chart.Type = ChartType.PyramidColumn;
+                    ReadColumnChart(reader, ns, chart);
+                    break;
                 case "title":
                     chart.Title = ReadTitle(reader, ns);
                     break;
@@ -194,7 +235,23 @@ internal static class ChartReader
                     chart.CategoryAxis = ReadAxis(reader, ns, AxisType.Category);
                     break;
                 case "valAx":
-                    chart.ValueAxis = ReadAxis(reader, ns, AxisType.Value);
+                    // 检查是否是次坐标轴
+                    var axisId = reader.GetAttribute("axId");
+                    if (chart.ValueAxis == null)
+                    {
+                        chart.ValueAxis = ReadAxis(reader, ns, AxisType.Value);
+                    }
+                    else
+                    {
+                        chart.SecondaryValueAxis = ReadAxis(reader, ns, AxisType.Value);
+                    }
+                    break;
+                case "dTable":
+                    chart.DataTable = ReadDataTable(reader, ns);
+                    break;
+                case "plotArea":
+                    // 检查是否是组合图表
+                    CheckForComboChart(reader, ns, chart);
                     break;
             }
         }
@@ -244,10 +301,145 @@ internal static class ChartReader
 
     private static void ReadRadarChart(XmlReader reader, string ns, ChartData chart)
     {
-        ReadBarChart(reader, ns, chart);
+        if (reader.IsEmptyElement) return;
+
+        var depth = 1;
+        while (reader.Read() && depth > 0)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.NamespaceURI == ns)
+            {
+                switch (reader.LocalName)
+                {
+                    case "radarStyle":
+                        var style = reader.GetAttribute("val");
+                        chart.PlotArea.RadarStyle = style?.ToLowerInvariant() switch
+                        {
+                            "filled" => RadarStyle.Filled,
+                            _ => RadarStyle.Marker
+                        };
+                        break;
+                    case "axId":
+                        // Radar chart axis handling
+                        break;
+                }
+            }
+            else if (reader.NodeType == XmlNodeType.EndElement) depth--;
+        }
     }
 
     private static void ReadDoughnutChart(XmlReader reader, string ns, ChartData chart)
+    {
+        if (reader.IsEmptyElement) return;
+
+        var depth = 1;
+        while (reader.Read() && depth > 0)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.NamespaceURI == ns)
+            {
+                switch (reader.LocalName)
+                {
+                    case "firstSliceAng":
+                        if (int.TryParse(reader.GetAttribute("val"), out var angle))
+                            chart.PlotArea.FirstSliceAngle = angle;
+                        break;
+                    case "holeSize":
+                        if (int.TryParse(reader.GetAttribute("val"), out var holeSize))
+                            chart.PlotArea.HoleSize = holeSize;
+                        break;
+                }
+            }
+            else if (reader.NodeType == XmlNodeType.EndElement) depth--;
+        }
+    }
+
+    private static void ReadBubbleChart(XmlReader reader, string ns, ChartData chart)
+    {
+        if (reader.IsEmptyElement) return;
+
+        var depth = 1;
+        while (reader.Read() && depth > 0)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.NamespaceURI == ns)
+            {
+                switch (reader.LocalName)
+                {
+                    case "bubbleScale":
+                        if (int.TryParse(reader.GetAttribute("val"), out var scale))
+                            chart.PlotArea.BubbleScale = scale;
+                        break;
+                    case "showNegBubbles":
+                        chart.PlotArea.ShowNegativeBubbles = reader.GetAttribute("val") == "1";
+                        break;
+                    case "sizeRepresents":
+                        // Size represents area or width
+                        break;
+                    case "axId":
+                        // Bubble chart axis handling
+                        break;
+                }
+            }
+            else if (reader.NodeType == XmlNodeType.EndElement) depth--;
+        }
+    }
+
+    private static void ReadSurfaceChart(XmlReader reader, string ns, ChartData chart)
+    {
+        if (reader.IsEmptyElement) return;
+
+        chart.PlotArea.SurfaceViewSettings ??= new SurfaceViewSettings();
+
+        var depth = 1;
+        while (reader.Read() && depth > 0)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.NamespaceURI == ns)
+            {
+                switch (reader.LocalName)
+                {
+                    case "wireframe":
+                        if (reader.GetAttribute("val") == "1")
+                            chart.Type = ChartType.SurfaceWireframe;
+                        break;
+                    case "axId":
+                        // Surface chart axis handling
+                        break;
+                }
+            }
+            else if (reader.NodeType == XmlNodeType.EndElement) depth--;
+        }
+    }
+
+    private static void ReadStockChart(XmlReader reader, string ns, ChartData chart)
+    {
+        if (reader.IsEmptyElement) return;
+
+        chart.PlotArea.StockSettings ??= new StockSettings();
+
+        var depth = 1;
+        while (reader.Read() && depth > 0)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.NamespaceURI == ns)
+            {
+                switch (reader.LocalName)
+                {
+                    case "dropLines":
+                        chart.PlotArea.StockSettings.ShowDropLines = true;
+                        break;
+                    case "highLowLines":
+                        chart.PlotArea.StockSettings.ShowHighLowLines = true;
+                        break;
+                    case "upDownBars":
+                        chart.PlotArea.StockSettings.ShowOpenCloseBars = true;
+                        break;
+                    case "axId":
+                        // Stock chart axis handling
+                        break;
+                }
+            }
+            else if (reader.NodeType == XmlNodeType.EndElement) depth--;
+        }
+    }
+
+    private static void ReadColumnChart(XmlReader reader, string ns, ChartData chart)
     {
         ReadBarChart(reader, ns, chart);
     }
@@ -890,6 +1082,66 @@ internal static class ChartReader
                 {
                     var val = reader.GetAttribute("val");
                     if (double.TryParse(val, out var max)) axis.MaxValue = max;
+                }
+            }
+            else if (reader.NodeType == XmlNodeType.EndElement) depth--;
+        }
+    }
+
+    private static ChartDataTable? ReadDataTable(XmlReader reader, string ns)
+    {
+        var dataTable = new ChartDataTable();
+
+        // 读取showHorzBorder属性
+        var showHorzBorder = reader.GetAttribute("showHorzBorder");
+        if (showHorzBorder != null) dataTable.HasHorizontalBorder = showHorzBorder == "1";
+
+        // 读取showVertBorder属性
+        var showVertBorder = reader.GetAttribute("showVertBorder");
+        if (showVertBorder != null) dataTable.HasVerticalBorder = showVertBorder == "1";
+
+        // 读取showOutline属性
+        var showOutline = reader.GetAttribute("showOutline");
+        if (showOutline != null) dataTable.HasOutlineBorder = showOutline == "1";
+
+        // 读取showKeys属性
+        var showKeys = reader.GetAttribute("showKeys");
+        if (showKeys != null) dataTable.ShowLegendKeys = showKeys == "1";
+
+        if (reader.IsEmptyElement) return dataTable;
+
+        var depth = 1;
+        while (reader.Read() && depth > 0)
+        {
+            if (reader.NodeType == XmlNodeType.EndElement) depth--;
+        }
+        return dataTable;
+    }
+
+    private static void CheckForComboChart(XmlReader reader, string ns, ChartData chart)
+    {
+        if (reader.IsEmptyElement) return;
+
+        var chartTypeCount = 0;
+        var depth = 1;
+        while (reader.Read() && depth > 0)
+        {
+            if (reader.NodeType == XmlNodeType.Element && reader.NamespaceURI == ns)
+            {
+                var localName = reader.LocalName;
+                if (localName.EndsWith("Chart") && localName != "chart")
+                {
+                    chartTypeCount++;
+                    if (chartTypeCount > 1)
+                    {
+                        chart.IsComboChart = true;
+                    }
+                }
+                else if (localName == "axId")
+                {
+                    // 读取坐标轴ID以识别主次坐标轴
+                    var val = reader.GetAttribute("val");
+                    // 这里可以添加更复杂的逻辑来关联系列和坐标轴
                 }
             }
             else if (reader.NodeType == XmlNodeType.EndElement) depth--;

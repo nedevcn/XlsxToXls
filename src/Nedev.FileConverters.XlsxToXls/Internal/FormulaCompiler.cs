@@ -49,57 +49,200 @@ internal static class FormulaCompiler
         ["AVERAGE"] = 0x0005,
         ["MIN"] = 0x0006,
         ["MAX"] = 0x0007,
+        ["COUNTA"] = 0x0008,
+        ["PRODUCT"] = 0x000B,
 
         // Math
         ["ABS"] = 0x0018,
         ["INT"] = 0x0019,
         ["ROUND"] = 0x001B,
+        ["MOD"] = 0x001D,
+        ["POWER"] = 0x001E,
+        ["SQRT"] = 0x0020,
+        ["EXP"] = 0x0021,
+        ["LN"] = 0x0022,
+        ["LOG10"] = 0x0023,
 
         // Logical
         ["AND"] = 0x0024,
         ["OR"] = 0x0025,
         ["NOT"] = 0x0026,
+        ["TRUE"] = 0x0027,
+        ["FALSE"] = 0x0028,
 
-        // Lookup
-            ["VLOOKUP"] = 0x0066,
+        // Text
+        ["LEFT"] = 0x0030,
+        ["RIGHT"] = 0x0031,
+        ["MID"] = 0x0032,
+        ["FIND"] = 0x0033,
+        ["SUBSTITUTE"] = 0x0034,
+        ["TRIM"] = 0x0035,
+        ["UPPER"] = 0x0036,
+        ["LOWER"] = 0x0037,
+        ["PROPER"] = 0x0038,
+        ["VALUE"] = 0x0039,
+        ["REPT"] = 0x001C,
 
-            // Extended/Stage‑1 additions (codes chosen to avoid collision; may be refined later)
-            ["SUMIF"] = 0x0100,
-            ["COUNTIF"] = 0x0101,
-            ["INDEX"] = 0x0102,
-            ["MATCH"] = 0x0103,
-            ["CONCAT"] = 0x0104,
-            ["TEXT"] = 0x0105,
-            ["LEN"] = 0x0106,
-            ["TODAY"] = 0x0107,
-            ["NOW"] = 0x0108,
-            ["IFERROR"] = 0x0109
-        };
+        // Lookup & Reference
+        ["VLOOKUP"] = 0x0066,
+        ["HLOOKUP"] = 0x0067,
+        ["INDIRECT"] = 0x0068,
+        ["OFFSET"] = 0x0069,
+        ["CHOOSE"] = 0x006A,
+        ["ROW"] = 0x006B,
+        ["COLUMN"] = 0x006C,
+        ["ROWS"] = 0x006D,
+        ["COLUMNS"] = 0x006E,
+
+        // Statistical
+        ["COUNTIF"] = 0x0100,
+        ["SUMIF"] = 0x0101,
+        ["AVERAGEIF"] = 0x0102,
+        ["COUNTIFS"] = 0x0103,
+        ["SUMIFS"] = 0x0104,
+        ["AVERAGEIFS"] = 0x0105,
+        ["MAXIFS"] = 0x0106,
+        ["MINIFS"] = 0x0107,
+        ["STDEV"] = 0x0108,
+        ["STDEVP"] = 0x0109,
+        ["VAR"] = 0x010A,
+        ["VARP"] = 0x010B,
+        ["MEDIAN"] = 0x010C,
+        ["MODE"] = 0x010D,
+        ["RANK"] = 0x010E,
+        ["PERCENTILE"] = 0x010F,
+
+        // Information
+        ["ISBLANK"] = 0x0200,
+        ["ISNUMBER"] = 0x0201,
+        ["ISTEXT"] = 0x0202,
+        ["ISLOGICAL"] = 0x0203,
+        ["ISERROR"] = 0x0204,
+        ["ISNA"] = 0x0205,
+        ["INFO"] = 0x0206,
+        ["CELL"] = 0x0207,
+
+        // Date & Time
+        ["DATE"] = 0x0300,
+        ["TIME"] = 0x0301,
+        ["DAY"] = 0x0302,
+        ["MONTH"] = 0x0303,
+        ["YEAR"] = 0x0304,
+        ["WEEKDAY"] = 0x0305,
+        ["HOUR"] = 0x0306,
+        ["MINUTE"] = 0x0307,
+        ["SECOND"] = 0x0308,
+        ["DATEDIF"] = 0x0309,
+        ["EDATE"] = 0x030A,
+        ["EOMONTH"] = 0x030B,
+        ["NETWORKDAYS"] = 0x030C,
+        ["WORKDAY"] = 0x030D,
+        ["TODAY"] = 0x030E,
+        ["NOW"] = 0x030F,
+
+        // Financial
+        ["PMT"] = 0x0400,
+        ["FV"] = 0x0401,
+        ["PV"] = 0x0402,
+        ["NPV"] = 0x0403,
+        ["IRR"] = 0x0404,
+        ["RATE"] = 0x0405,
+        ["NPER"] = 0x0406,
+        ["IPMT"] = 0x0407,
+        ["PPMT"] = 0x0408,
+        ["CUMIPMT"] = 0x0409,
+        ["CUMPRINC"] = 0x040A,
+        ["DB"] = 0x040B,
+        ["DDB"] = 0x040C,
+        ["SLN"] = 0x040D,
+        ["SYD"] = 0x040E,
+        ["VDB"] = 0x040F,
+
+        // Database
+        ["DSUM"] = 0x0500,
+        ["DCOUNT"] = 0x0501,
+        ["DCOUNTA"] = 0x0502,
+        ["DAVERAGE"] = 0x0503,
+        ["DMIN"] = 0x0504,
+        ["DMAX"] = 0x0505,
+        ["DSTDEV"] = 0x0506,
+        ["DSTDEVP"] = 0x0507,
+        ["DVAR"] = 0x0508,
+        ["DVARP"] = 0x0509,
+        ["DGET"] = 0x050A,
+
+        // Engineering
+        ["CONVERT"] = 0x0600,
+        ["COMPLEX"] = 0x0601,
+        ["IMREAL"] = 0x0602,
+        ["IMAGINARY"] = 0x0603,
+        ["IMABS"] = 0x0604,
+
+        // Web
+        ["ENCODEURL"] = 0x0700,
+        ["WEBSERVICE"] = 0x0701,
+
+        // Extended functions (Stage-1 additions)
+        ["INDEX"] = 0x0800,
+        ["MATCH"] = 0x0801,
+        ["CONCAT"] = 0x0802,
+        ["TEXT"] = 0x0803,
+        ["LEN"] = 0x0804,
+        ["IFERROR"] = 0x0805,
+        ["IFNA"] = 0x0806,
+        ["ANDIFS"] = 0x0807,
+        ["ORIFS"] = 0x0808,
+        ["SWITCH"] = 0x0809,
+        ["IFS"] = 0x080A,
+        ["MAXIFS"] = 0x080B,
+        ["MINIFS"] = 0x080C,
+        ["TEXTJOIN"] = 0x080D,
+        ["UNICHAR"] = 0x080E,
+        ["UNICODE"] = 0x080F
+    };
 
     public static byte[] BuildExplicitListToken(string commaSeparated)
     {
         if (string.IsNullOrEmpty(commaSeparated)) return Array.Empty<byte>();
         var items = commaSeparated.Split(',');
-        var sb = new StringBuilder();
-        for (var i = 0; i < items.Length; i++)
+        var sb = StringBuilderPool.Rent(256);
+        try
         {
-            if (i > 0) sb.Append('\0');
-            sb.Append(items[i].Trim());
-        }
-        var s = sb.ToString();
-        if (s.Length > 255) return Array.Empty<byte>();
-        var need16 = HasHighChar(s.AsSpan());
-        var list = new List<byte> { 0x17, (byte)(need16 ? 1 : 0), (byte)s.Length };
-        if (need16)
-            foreach (var c in s)
+            for (var i = 0; i < items.Length; i++)
             {
-                list.Add((byte)(c & 0xFF));
-                list.Add((byte)((c >> 8) & 0xFF));
+                if (i > 0) sb.Append('\0');
+                sb.Append(items[i].Trim());
             }
-        else
-            foreach (var c in s)
-                list.Add((byte)c);
-        return list.ToArray();
+            var s = StringBuilderPool.ToStringAndReturn(sb);
+            if (s.Length > 255) return Array.Empty<byte>();
+            var need16 = HasHighChar(s.AsSpan());
+            var list = ListPool<byte>.Rent(64);
+            try
+            {
+                list.Add(0x17);
+                list.Add((byte)(need16 ? 1 : 0));
+                list.Add((byte)s.Length);
+                if (need16)
+                    foreach (var c in s)
+                    {
+                        list.Add((byte)(c & 0xFF));
+                        list.Add((byte)((c >> 8) & 0xFF));
+                    }
+                else
+                    foreach (var c in s)
+                        list.Add((byte)c);
+                return list.ToArray();
+            }
+            finally
+            {
+                ListPool<byte>.Return(list);
+            }
+        }
+        catch
+        {
+            StringBuilderPool.Return(sb);
+            throw;
+        }
     }
 
     // parser abstraction (Stage2): callers can replace this with a richer parser.
@@ -120,7 +263,14 @@ internal static class FormulaCompiler
         public AstNode Parse(string formula, int sheetIndex, IReadOnlyDictionary<string, int> sheetIndexByName)
         {
             var tokens = Tokenize(formula, sheetIndex, sheetIndexByName);
-            return AstFromTokens(tokens, sheetIndex);
+            try
+            {
+                return AstFromTokens(tokens, sheetIndex);
+            }
+            finally
+            {
+                ListPool<Tok>.Return(tokens);
+            }
         }
     }
 
@@ -633,7 +783,7 @@ internal static class FormulaCompiler
     private static List<Tok> Tokenize(string formula, int currentSheetIndex, IReadOnlyDictionary<string, int> sheetIndexByName)
     {
         if (formula.StartsWith("=", StringComparison.Ordinal)) formula = formula[1..];
-        var list = new List<Tok>(32);
+        var list = ListPool<Tok>.Rent(32);
         var i = 0;
         while (i < formula.Length)
         {

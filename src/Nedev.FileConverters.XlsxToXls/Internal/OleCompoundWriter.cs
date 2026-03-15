@@ -10,13 +10,13 @@ namespace Nedev.FileConverters.XlsxToXls.Internal;
 internal sealed class OleCompoundWriter
 {
     private const int SectorSize = 512;
-    private const int DirEntrySize = 128;
+    private const int DirEntrySize = 132;
     private const int FatSectorEntryCount = SectorSize / 4;
     private const uint EndOfChain = 0xFFFFFFFE;
     private const uint FatSector = 0xFFFFFFFD;
 
-    private readonly List<uint> _fat = [];
-    private readonly List<byte> _data = [];
+    private readonly List<uint> _fat = new List<uint>();
+    private readonly List<byte> _data = new List<byte>();
     private readonly string _streamName;
     private int _streamStartSector = -1;
 
@@ -104,7 +104,8 @@ internal sealed class OleCompoundWriter
         BinaryPrimitives.WriteInt32LittleEndian(dirEntry[72..], -1);
         BinaryPrimitives.WriteInt32LittleEndian(dirEntry[76..], 1);
         BinaryPrimitives.WriteInt32LittleEndian(dirEntry[120..], 0);
-        BinaryPrimitives.WriteInt64LittleEndian(dirEntry[124..], 0);
+        BinaryPrimitives.WriteInt32LittleEndian(dirEntry[124..], 0);  // Low 32 bits
+        BinaryPrimitives.WriteInt32LittleEndian(dirEntry[128..], 0);  // High 32 bits
         output.Write(dirEntry);
 
         // Workbook stream entry
@@ -119,7 +120,8 @@ internal sealed class OleCompoundWriter
         BinaryPrimitives.WriteInt32LittleEndian(dirEntry[72..], -1);
         BinaryPrimitives.WriteInt32LittleEndian(dirEntry[76..], -1);
         BinaryPrimitives.WriteInt32LittleEndian(dirEntry[120..], _streamStartSector);
-        BinaryPrimitives.WriteInt64LittleEndian(dirEntry[124..], _data.Count);
+        BinaryPrimitives.WriteInt32LittleEndian(dirEntry[124..], (int)_data.Count);  // Low 32 bits
+        BinaryPrimitives.WriteInt32LittleEndian(dirEntry[128..], 0);  // High 32 bits
         output.Write(dirEntry);
 
         var dirPadding = SectorSize - DirEntrySize * 2;

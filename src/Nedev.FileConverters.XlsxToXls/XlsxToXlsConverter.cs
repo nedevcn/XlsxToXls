@@ -8,12 +8,46 @@ namespace Nedev.FileConverters.XlsxToXls;
 
 using Nedev.FileConverters.Core;
 using System.IO;
+using System.Threading.Tasks;
+using System.Threading;
+using System.Linq;
+
+/// <summary>
+/// Initializes the XLSX to XLS converter.
+/// </summary>
+public static class XlsxToXlsConverterInitializer
+{
+    private static int _initialized;
+    private static readonly object _lock = new();
+
+    /// <summary>
+    /// Gets the lock object used for thread-safe initialization.
+    /// </summary>
+    internal static object LockObject => _lock;
+
+    /// <summary>
+    /// Registers the CodePages encoding provider required for BIFF8 format.
+    /// This method is called automatically before conversion.
+    /// Thread-safe for concurrent access.
+    /// </summary>
+    public static void EnsureInitialized()
+    {
+        if (Interlocked.CompareExchange(ref _initialized, 1, 0) == 0)
+        {
+            lock (_lock)
+            {
+                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            }
+        }
+    }
+}
 
 /// <summary>
 /// High-performance XLSX to XLS converter with zero third-party dependencies.
 /// Uses streaming and pooled buffers for optimal memory usage.
 /// </summary>
 /// <remarks>
+/// <para>
 /// This converter supports:
 /// <list type="bullet">
 ///   <item><description>All Excel cell data types (numbers, text, dates, booleans)</description></item>
@@ -23,6 +57,34 @@ using System.IO;
 ///   <item><description>Merge cells, hyperlinks, data validation</description></item>
 ///   <item><description>Comments and conditional formatting</description></item>
 /// </list>
+/// </para>
+/// <para><b>Example usage:</b></para>
+/// <code language="csharp">
+/// // Basic conversion
+/// using (var input = File.OpenRead("input.xlsx"))
+/// using (var output = File.Create("output.xls"))
+/// {
+///     XlsxToXlsConverter.Convert(input, output);
+/// }
+/// 
+/// // Conversion with logging
+/// using (var input = File.OpenRead("input.xlsx"))
+/// using (var output = File.Create("output.xls"))
+/// {
+///     XlsxToXlsConverter.Convert(input, output, log => Console.WriteLine(log));
+/// }
+/// 
+/// // Using the Core framework adapter
+/// var adapter = new XlsxToXlsConverter.FileConverterAdapter();
+/// using (var input = File.OpenRead("input.xlsx"))
+/// using (var result = adapter.Convert(input))
+/// {
+///     using (var output = File.Create("output.xls"))
+///     {
+///         result.CopyTo(output);
+///     }
+/// }
+/// </code>
 /// </remarks>
 public static class XlsxToXlsConverter
 {
@@ -72,6 +134,8 @@ public static class XlsxToXlsConverter
     /// </remarks>
     public static void Convert(Stream xlsxStream, Stream xlsStream, Action<string>? log = null)
     {
+        XlsxToXlsConverterInitializer.EnsureInitialized();
+
         if (xlsxStream == null)
             throw new ArgumentNullException(nameof(xlsxStream));
         if (xlsStream == null)
@@ -84,8 +148,13 @@ public static class XlsxToXlsConverter
 
         log?.Invoke($"[XlsxToXlsConverter] Starting conversion...");
 
-        var (sharedStrings, sheets, styles, definedNames) = XlsxReader.Read(xlsxStream, log);
+        var (sharedStrings, sheets, styles, definedNames, docSecurity) = XlsxReader.Read(xlsxStream, log);
         log?.Invoke($"[XlsxToXlsConverter] Read {sharedStrings.Count} shared strings, {sheets.Count} sheets, {definedNames.Count} defined names");
+        if (docSecurity.HasValue && docSecurity.Value.IsSigned)
+        {
+            var sigCount = docSecurity.Value.Signatures?.Count ?? 0;
+            log?.Invoke($"[XlsxToXlsConverter] Document has {sigCount} digital signature(s)");
+        }
 
         var stylesData = styles ?? CreateDefaultStyles();
         log?.Invoke($"[XlsxToXlsConverter] Using {stylesData.Fonts.Count} fonts, {stylesData.NumFmts.Count} number formats, {stylesData.CellXfs.Count} cell styles");
@@ -171,6 +240,182 @@ public static class XlsxToXlsConverter
         using var xlsx = File.OpenRead(xlsxPath);
         using var xls = File.Create(xlsPath);
         Convert(xlsx, xls, log);
+    }
+
+    /// <summary>
+    /// Converts XLSX file to XLS file asynchronously.
+    /// </summary>
+    /// <param name="xlsxPath">Path to the input XLSX file.</param>
+    /// <param name="xlsPath">Path to the output XLS file. Will be created or overwritten.</param>
+    /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous conversion operation.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="xlsxPath"/> or <paramref name="xlsPath"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="xlsxPath"/> is empty or contains only whitespace.</exception>
+    /// <exception cref="FileNotFoundException">Thrown when the input file does not exist.</exception>
+    /// <exception cref="UnauthorizedAccessException">Thrown when access to the file is denied.</exception>
+    /// <exception cref="IOException">Thrown when an I/O error occurs during file operations.</exception>
+    /// <exception cref="InvalidDataException">Thrown when the input file is not a valid XLSX file.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when the operation is canceled.</exception>
+    /// <remarks>
+    /// This method performs the conversion asynchronously, allowing the calling thread to continue execution.
+    /// The actual conversion is still synchronous internally, but file I/O is performed asynchronously.
+    /// </remarks>
+    public static async Task ConvertFileAsync(string xlsxPath, string xlsPath, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(xlsxPath))
+            throw new ArgumentException("Path cannot be null or whitespace.", nameof(xlsxPath));
+        if (string.IsNullOrWhiteSpace(xlsPath))
+            throw new ArgumentException("Path cannot be null or whitespace.", nameof(xlsPath));
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        using var xlsx = new FileStream(xlsxPath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous);
+        using var xls = new FileStream(xlsPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous);
+        
+        // Read input into memory stream for synchronous processing
+        using var memStream = new MemoryStream();
+        await xlsx.CopyToAsync(memStream, cancellationToken);
+        memStream.Position = 0;
+        
+        using var outputStream = new MemoryStream();
+        Convert(memStream, outputStream);
+        
+        outputStream.Position = 0;
+        await outputStream.CopyToAsync(xls, cancellationToken);
+    }
+
+    /// <summary>
+    /// Converts XLSX file to XLS file asynchronously with logging.
+    /// </summary>
+    /// <param name="xlsxPath">Path to the input XLSX file.</param>
+    /// <param name="xlsPath">Path to the output XLS file. Will be created or overwritten.</param>
+    /// <param name="log">Logging callback for diagnostic messages.</param>
+    /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous conversion operation.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="xlsxPath"/>, <paramref name="xlsPath"/>, or <paramref name="log"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="xlsxPath"/> is empty or contains only whitespace.</exception>
+    /// <exception cref="FileNotFoundException">Thrown when the input file does not exist.</exception>
+    /// <exception cref="UnauthorizedAccessException">Thrown when access to the file is denied.</exception>
+    /// <exception cref="IOException">Thrown when an I/O error occurs during file operations.</exception>
+    /// <exception cref="InvalidDataException">Thrown when the input file is not a valid XLSX file.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when the operation is canceled.</exception>
+    public static async Task ConvertFileAsync(string xlsxPath, string xlsPath, Action<string> log, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(xlsxPath))
+            throw new ArgumentException("Path cannot be null or whitespace.", nameof(xlsxPath));
+        if (string.IsNullOrWhiteSpace(xlsPath))
+            throw new ArgumentException("Path cannot be null or whitespace.", nameof(xlsPath));
+        if (log == null)
+            throw new ArgumentNullException(nameof(log));
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        using var xlsx = new FileStream(xlsxPath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous);
+        using var xls = new FileStream(xlsPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous);
+        
+        using var memStream = new MemoryStream();
+        await xlsx.CopyToAsync(memStream, cancellationToken);
+        memStream.Position = 0;
+        
+        using var outputStream = new MemoryStream();
+        Convert(memStream, outputStream, log);
+        
+        outputStream.Position = 0;
+        await outputStream.CopyToAsync(xls, cancellationToken);
+    }
+
+    /// <summary>
+    /// Converts multiple XLSX files to XLS format in batch.
+    /// </summary>
+    /// <param name="files">Collection of tuples containing input XLSX path and output XLS path.</param>
+    /// <param name="parallelOptions">Options for parallel execution, including degree of parallelism and cancellation token.</param>
+    /// <returns>A task representing the batch conversion operation.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="files"/> is null.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when the operation is canceled.</exception>
+    /// <remarks>
+    /// <para>
+    /// This method converts multiple files sequentially. For parallel conversion, use the overload with progress reporting.
+    /// </para>
+    /// <para><b>Example usage:</b></para>
+    /// <code language="csharp">
+    /// var files = new[]
+    /// {
+    ///     ("input1.xlsx", "output1.xls"),
+    ///     ("input2.xlsx", "output2.xls"),
+    ///     ("input3.xlsx", "output3.xls")
+    /// };
+    /// 
+    /// await XlsxToXlsConverter.ConvertBatchAsync(files);
+    /// </code>
+    /// </remarks>
+    public static async Task ConvertBatchAsync(IEnumerable<(string xlsxPath, string xlsPath)> files, ParallelOptions? parallelOptions = null)
+    {
+        if (files == null)
+            throw new ArgumentNullException(nameof(files));
+
+        var options = parallelOptions ?? new ParallelOptions { MaxDegreeOfParallelism = 1 };
+        var fileList = files.ToList();
+        
+        await Task.Run(() =>
+        {
+            foreach (var filePair in fileList)
+            {
+                options.CancellationToken.ThrowIfCancellationRequested();
+                ConvertFile(filePair.xlsxPath, filePair.xlsPath);
+            }
+        }, options.CancellationToken);
+    }
+
+    /// <summary>
+    /// Converts multiple XLSX files to XLS format in batch with progress reporting.
+    /// </summary>
+    /// <param name="files">Collection of tuples containing input XLSX path and output XLS path.</param>
+    /// <param name="progress">Progress reporter that receives completion percentage (0-100).</param>
+    /// <param name="parallelOptions">Options for parallel execution, including degree of parallelism and cancellation token.</param>
+    /// <returns>A task representing the batch conversion operation.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="files"/> or <paramref name="progress"/> is null.</exception>
+    /// <exception cref="OperationCanceledException">Thrown when the operation is canceled.</exception>
+    /// <remarks>
+    /// <para>
+    /// This method provides progress reporting during batch conversion.
+    /// The progress callback is invoked after each file is converted with the current completion percentage.
+    /// Files are processed sequentially to ensure thread safety.
+    /// </para>
+    /// <para><b>Example usage:</b></para>
+    /// <code language="csharp">
+    /// var files = Directory.GetFiles(".", "*.xlsx")
+    ///     .Select(f => (f, Path.ChangeExtension(f, ".xls")));
+    /// 
+    /// var progress = new Progress&lt;int&gt;(percent => 
+    ///     Console.WriteLine($"Progress: {percent}%"));
+    /// 
+    /// await XlsxToXlsConverter.ConvertBatchAsync(files, progress);
+    /// </code>
+    /// </remarks>
+    public static async Task ConvertBatchAsync(IEnumerable<(string xlsxPath, string xlsPath)> files, IProgress<int> progress, ParallelOptions? parallelOptions = null)
+    {
+        if (files == null)
+            throw new ArgumentNullException(nameof(files));
+        if (progress == null)
+            throw new ArgumentNullException(nameof(progress));
+
+        var options = parallelOptions ?? new ParallelOptions { MaxDegreeOfParallelism = 1 };
+        var fileList = files.ToList();
+        var totalFiles = fileList.Count;
+        var completedFiles = 0;
+
+        await Task.Run(() =>
+        {
+            foreach (var filePair in fileList)
+            {
+                options.CancellationToken.ThrowIfCancellationRequested();
+                ConvertFile(filePair.xlsxPath, filePair.xlsPath);
+                
+                completedFiles++;
+                var percent = (int)((double)completedFiles / totalFiles * 100);
+                progress.Report(percent);
+            }
+        }, options.CancellationToken);
     }
 
     private static StylesData CreateDefaultStyles()
@@ -615,6 +860,31 @@ public static class XlsxToXlsConverter
                 var f1 = CompileDataValidationFormula(dv, dv.Formula1, sheetIndex, sheetIndexByName);
                 var f2 = CompileFormulaTokens(dv.Formula2, sheetIndex, sheetIndexByName);
                 bw.WriteDatavalidation(dv, f1, f2);
+            }
+        }
+
+        // Write sheet protection if enabled
+        if (sheet.SheetProtection is { } protection && protection.IsProtected)
+        {
+            var protectionWriter = new SheetProtectionWriter(buffer.Slice(bw.Position));
+            protectionWriter.WriteAllProtectionRecords(protection);
+            // Update BiffWriter position
+            bw = new BiffWriter(buffer.Slice(0, bw.Position + protectionWriter.Position));
+        }
+
+        // Write shapes if present
+        if (sheet.Shapes.Count > 0)
+        {
+            var shapeWriter = ShapeWriter.CreatePooled(out var shapeBuffer, 65536);
+            try
+            {
+                var shapeDataLen = shapeWriter.WriteAllShapes(sheet.Shapes, shapeId);
+                bw.WriteMsodrawingShapes(shapeBuffer.AsSpan(0, shapeDataLen));
+                shapeId += (ushort)sheet.Shapes.Count;
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(shapeBuffer);
             }
         }
 

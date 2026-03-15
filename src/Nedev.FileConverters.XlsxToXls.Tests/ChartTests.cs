@@ -1344,5 +1344,1114 @@ namespace Nedev.FileConverters.XlsxToXls.Tests
                 writer.Dispose();
             }
         }
+
+        // 新增测试：次坐标轴
+        [Fact]
+        public void ChartData_SecondaryValueAxis()
+        {
+            var chart = new ChartData
+            {
+                Name = "DualAxisChart",
+                Type = ChartType.Column,
+                ValueAxis = new ChartAxis
+                {
+                    Type = AxisType.Value,
+                    Position = AxisPosition.Left,
+                    Title = "Primary Axis",
+                    MinValue = 0,
+                    MaxValue = 100
+                },
+                SecondaryValueAxis = new ChartAxis
+                {
+                    Type = AxisType.Value,
+                    Position = AxisPosition.Right,
+                    Title = "Secondary Axis",
+                    MinValue = 0,
+                    MaxValue = 1000
+                }
+            };
+
+            Assert.NotNull(chart.SecondaryValueAxis);
+            Assert.Equal(AxisPosition.Right, chart.SecondaryValueAxis.Position);
+            Assert.Equal("Secondary Axis", chart.SecondaryValueAxis.Title);
+        }
+
+        [Fact]
+        public void ChartWriter_WritesSecondaryAxis()
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 16384);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = "DualAxisChart",
+                    Type = ChartType.Column,
+                    ValueAxis = new ChartAxis
+                    {
+                        Type = AxisType.Value,
+                        Position = AxisPosition.Left,
+                        Title = "Primary"
+                    },
+                    SecondaryValueAxis = new ChartAxis
+                    {
+                        Type = AxisType.Value,
+                        Position = AxisPosition.Right,
+                        Title = "Secondary"
+                    },
+                    Series = new List<ChartSeries>
+                    {
+                        new() { Name = "PrimarySeries", SeriesIndex = 0 },
+                        new() { Name = "SecondarySeries", SeriesIndex = 1, UseSecondaryAxis = true }
+                    }
+                };
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 0);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
+
+        // 新增测试：数据表
+        [Fact]
+        public void ChartDataTable_DefaultValues()
+        {
+            var dataTable = new ChartDataTable();
+
+            Assert.True(dataTable.Show);
+            Assert.True(dataTable.ShowLegendKeys);
+            Assert.True(dataTable.HasHorizontalBorder);
+            Assert.True(dataTable.HasVerticalBorder);
+            Assert.True(dataTable.HasOutlineBorder);
+            Assert.Equal(10, dataTable.FontSize);
+        }
+
+        [Fact]
+        public void ChartData_WithDataTable()
+        {
+            var chart = new ChartData
+            {
+                Name = "ChartWithDataTable",
+                Type = ChartType.Column,
+                DataTable = new ChartDataTable
+                {
+                    Show = true,
+                    ShowLegendKeys = true,
+                    HasHorizontalBorder = true,
+                    HasVerticalBorder = false,
+                    HasOutlineBorder = true,
+                    FontSize = 12
+                }
+            };
+
+            Assert.NotNull(chart.DataTable);
+            Assert.False(chart.DataTable.HasVerticalBorder);
+            Assert.Equal(12, chart.DataTable.FontSize);
+        }
+
+        [Fact]
+        public void ChartWriter_WritesDataTable()
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 16384);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = "ChartWithDataTable",
+                    Type = ChartType.Column,
+                    DataTable = new ChartDataTable
+                    {
+                        Show = true,
+                        ShowLegendKeys = true,
+                        HasHorizontalBorder = true,
+                        HasVerticalBorder = true,
+                        HasOutlineBorder = true,
+                        FontSize = 11
+                    },
+                    Series = new List<ChartSeries>
+                    {
+                        new() { Name = "Series1", SeriesIndex = 0 }
+                    }
+                };
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 0);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
+
+        [Fact]
+        public void ChartWriter_WritesDataTableWithoutLegendKeys()
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 16384);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = "ChartWithDataTable",
+                    Type = ChartType.Column,
+                    DataTable = new ChartDataTable
+                    {
+                        Show = true,
+                        ShowLegendKeys = false,
+                        HasHorizontalBorder = false,
+                        HasVerticalBorder = false,
+                        HasOutlineBorder = false,
+                        FontSize = 9
+                    },
+                    Series = new List<ChartSeries>
+                    {
+                        new() { Name = "Series1", SeriesIndex = 0 }
+                    }
+                };
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 0);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
+
+        // 新增测试：组合图表
+        [Fact]
+        public void ChartData_ComboChart()
+        {
+            var chart = new ChartData
+            {
+                Name = "ComboChart",
+                Type = ChartType.Column,
+                IsComboChart = true,
+                Series = new List<ChartSeries>
+                {
+                    new()
+                    {
+                        Name = "ColumnSeries",
+                        SeriesIndex = 0,
+                        UseSecondaryAxis = false
+                    },
+                    new()
+                    {
+                        Name = "LineSeries",
+                        SeriesIndex = 1,
+                        SecondaryChartType = ChartType.Line,
+                        UseSecondaryAxis = true
+                    }
+                }
+            };
+
+            Assert.True(chart.IsComboChart);
+            Assert.True(chart.Series[1].UseSecondaryAxis);
+            Assert.Equal(ChartType.Line, chart.Series[1].SecondaryChartType);
+        }
+
+        [Fact]
+        public void ChartWriter_WritesComboChart()
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 16384);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = "ComboChart",
+                    Type = ChartType.Column,
+                    IsComboChart = true,
+                    CategoryAxis = new ChartAxis
+                    {
+                        Type = AxisType.Category,
+                        Position = AxisPosition.Bottom
+                    },
+                    ValueAxis = new ChartAxis
+                    {
+                        Type = AxisType.Value,
+                        Position = AxisPosition.Left,
+                        Title = "Primary Values"
+                    },
+                    SecondaryValueAxis = new ChartAxis
+                    {
+                        Type = AxisType.Value,
+                        Position = AxisPosition.Right,
+                        Title = "Secondary Values"
+                    },
+                    Series = new List<ChartSeries>
+                    {
+                        new()
+                        {
+                            Name = "Sales",
+                            SeriesIndex = 0,
+                            FillColor = ChartColor.Blue,
+                            UseSecondaryAxis = false
+                        },
+                        new()
+                        {
+                            Name = "Growth %",
+                            SeriesIndex = 1,
+                            SecondaryChartType = ChartType.Line,
+                            LineStyle = LineStyle.Solid,
+                            MarkerStyle = MarkerStyle.Circle,
+                            FillColor = ChartColor.Red,
+                            UseSecondaryAxis = true
+                        }
+                    }
+                };
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 0);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
+
+        // 新增测试：完整图表 - 包含所有新功能
+        [Fact]
+        public void ChartWriter_CompleteChartWithAllFeatures()
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 65536);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = "CompleteChart",
+                    Type = ChartType.Column,
+                    IsComboChart = true,
+                    Title = new ChartTitle { Text = "Sales and Growth Analysis" },
+                    Legend = new ChartLegend { Show = true, Position = LegendPosition.Bottom },
+                    CategoryAxis = new ChartAxis
+                    {
+                        Type = AxisType.Category,
+                        Position = AxisPosition.Bottom,
+                        Title = "Months",
+                        HasMajorGridlines = false
+                    },
+                    ValueAxis = new ChartAxis
+                    {
+                        Type = AxisType.Value,
+                        Position = AxisPosition.Left,
+                        Title = "Sales ($)",
+                        MinValue = 0,
+                        MaxValue = 100000,
+                        HasMajorGridlines = true
+                    },
+                    SecondaryValueAxis = new ChartAxis
+                    {
+                        Type = AxisType.Value,
+                        Position = AxisPosition.Right,
+                        Title = "Growth (%)",
+                        MinValue = -20,
+                        MaxValue = 50,
+                        HasMajorGridlines = false
+                    },
+                    DataTable = new ChartDataTable
+                    {
+                        Show = true,
+                        ShowLegendKeys = true,
+                        HasHorizontalBorder = true,
+                        HasVerticalBorder = true,
+                        HasOutlineBorder = true,
+                        FontSize = 10
+                    },
+                    Series = new List<ChartSeries>
+                    {
+                        new()
+                        {
+                            Name = "Sales",
+                            SeriesIndex = 0,
+                            FillColor = ChartColor.Blue,
+                            BorderColor = ChartColor.DarkBlue,
+                            DataLabels = new DataLabels
+                            {
+                                Show = true,
+                                ShowValue = true,
+                                Position = DataLabelPosition.OutsideEnd
+                            },
+                            TrendLines = new List<TrendLine>
+                            {
+                                new()
+                                {
+                                    Type = TrendLineType.Linear,
+                                    DisplayEquation = true,
+                                    DisplayRSquared = true,
+                                    LineColor = ChartColor.Red,
+                                    LineStyle = LineStyle.Dash
+                                }
+                            },
+                            ErrorBars = new ErrorBars
+                            {
+                                Type = ErrorBarType.Both,
+                                ValueType = ErrorBarValueType.Percentage,
+                                Value = 5.0,
+                                ShowCap = true,
+                                LineColor = ChartColor.Gray
+                            },
+                            UseSecondaryAxis = false
+                        },
+                        new()
+                        {
+                            Name = "Growth %",
+                            SeriesIndex = 1,
+                            SecondaryChartType = ChartType.Line,
+                            LineStyle = LineStyle.Solid,
+                            MarkerStyle = MarkerStyle.Circle,
+                            FillColor = ChartColor.Green,
+                            BorderColor = ChartColor.DarkGreen,
+                            DataLabels = new DataLabels
+                            {
+                                Show = true,
+                                ShowValue = true,
+                                Position = DataLabelPosition.Above
+                            },
+                            TrendLines = new List<TrendLine>
+                            {
+                                new()
+                                {
+                                    Type = TrendLineType.MovingAverage,
+                                    Period = 3,
+                                    LineColor = ChartColor.Orange,
+                                    LineStyle = LineStyle.Dot
+                                }
+                            },
+                            UseSecondaryAxis = true
+                        }
+                    }
+                };
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 500);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
+
+        // ==================== 高级图表类型测试 ====================
+
+        // 气泡图测试
+        [Fact]
+        public void ChartData_BubbleChart_DefaultValues()
+        {
+            var chart = new ChartData
+            {
+                Name = "BubbleChart",
+                Type = ChartType.Bubble,
+                PlotArea = new ChartPlotArea()
+            };
+
+            Assert.Equal(ChartType.Bubble, chart.Type);
+            Assert.Equal(100, chart.PlotArea.BubbleScale);
+            Assert.False(chart.PlotArea.ShowNegativeBubbles);
+        }
+
+        [Fact]
+        public void ChartData_BubbleChart_WithSettings()
+        {
+            var chart = new ChartData
+            {
+                Name = "BubbleChart",
+                Type = ChartType.Bubble,
+                PlotArea = new ChartPlotArea
+                {
+                    BubbleScale = 150,
+                    ShowNegativeBubbles = true
+                },
+                Series = new List<ChartSeries>
+                {
+                    new()
+                    {
+                        Name = "BubbleSeries",
+                        XValues = new ChartRange { FirstRow = 0, FirstCol = 0, LastRow = 4, LastCol = 0 },
+                        YValues = new ChartRange { FirstRow = 0, FirstCol = 1, LastRow = 4, LastCol = 1 },
+                        BubbleSizes = new ChartRange { FirstRow = 0, FirstCol = 2, LastRow = 4, LastCol = 2 }
+                    }
+                }
+            };
+
+            Assert.Equal(150, chart.PlotArea.BubbleScale);
+            Assert.True(chart.PlotArea.ShowNegativeBubbles);
+            Assert.NotNull(chart.Series[0].XValues);
+            Assert.NotNull(chart.Series[0].YValues);
+            Assert.NotNull(chart.Series[0].BubbleSizes);
+        }
+
+        [Fact]
+        public void ChartWriter_WritesBubbleChart()
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 16384);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = "BubbleChart",
+                    Type = ChartType.Bubble,
+                    PlotArea = new ChartPlotArea
+                    {
+                        BubbleScale = 120,
+                        ShowNegativeBubbles = false
+                    },
+                    Series = new List<ChartSeries>
+                    {
+                        new()
+                        {
+                            Name = "BubbleSeries",
+                            SeriesIndex = 0,
+                            XValues = new ChartRange { FirstRow = 1, FirstCol = 0, LastRow = 5, LastCol = 0 },
+                            YValues = new ChartRange { FirstRow = 1, FirstCol = 1, LastRow = 5, LastCol = 1 },
+                            BubbleSizes = new ChartRange { FirstRow = 1, FirstCol = 2, LastRow = 5, LastCol = 2 },
+                            FillColor = ChartColor.Blue,
+                            MarkerStyle = MarkerStyle.Circle
+                        }
+                    }
+                };
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 0);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
+
+        // 雷达图测试
+        [Fact]
+        public void ChartData_RadarChart_DefaultValues()
+        {
+            var chart = new ChartData
+            {
+                Name = "RadarChart",
+                Type = ChartType.Radar,
+                PlotArea = new ChartPlotArea()
+            };
+
+            Assert.Equal(ChartType.Radar, chart.Type);
+            Assert.Equal(RadarStyle.Marker, chart.PlotArea.RadarStyle);
+            Assert.True(chart.PlotArea.RadarAxisLabels);
+        }
+
+        [Theory]
+        [InlineData(ChartType.Radar)]
+        [InlineData(ChartType.RadarWithMarkers)]
+        public void ChartWriter_WritesRadarCharts(ChartType type)
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 16384);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = "RadarChart",
+                    Type = type,
+                    PlotArea = new ChartPlotArea
+                    {
+                        RadarStyle = type == ChartType.RadarWithMarkers ? RadarStyle.Marker : RadarStyle.Filled,
+                        RadarAxisLabels = true
+                    },
+                    Series = new List<ChartSeries>
+                    {
+                        new()
+                        {
+                            Name = "RadarSeries",
+                            SeriesIndex = 0,
+                            LineStyle = LineStyle.Solid,
+                            FillColor = ChartColor.Red
+                        }
+                    }
+                };
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 0);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
+
+        [Fact]
+        public void ChartWriter_WritesFilledRadarChart()
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 16384);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = "FilledRadarChart",
+                    Type = ChartType.Radar,
+                    PlotArea = new ChartPlotArea
+                    {
+                        RadarStyle = RadarStyle.Filled,
+                        RadarAxisLabels = false
+                    },
+                    Series = new List<ChartSeries>
+                    {
+                        new()
+                        {
+                            Name = "FilledSeries",
+                            SeriesIndex = 0,
+                            FillColor = ChartColor.Green,
+                            LineStyle = LineStyle.Solid
+                        }
+                    }
+                };
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 0);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
+
+        // 股价图测试
+        [Fact]
+        public void StockSettings_DefaultValues()
+        {
+            var settings = new StockSettings();
+
+            Assert.True(settings.ShowDropLines);
+            Assert.True(settings.ShowHighLowLines);
+            Assert.True(settings.ShowOpenCloseBars);
+            Assert.Equal(ChartColor.White, settings.UpBarColor);
+            Assert.Equal(ChartColor.Black, settings.DownBarColor);
+            Assert.Equal(ChartColor.Black, settings.HighLowLineColor);
+        }
+
+        [Theory]
+        [InlineData(ChartType.StockHLC)]
+        [InlineData(ChartType.StockOHLC)]
+        [InlineData(ChartType.StockVHLC)]
+        [InlineData(ChartType.StockVOHLC)]
+        public void ChartWriter_WritesStockCharts(ChartType type)
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 16384);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = "StockChart",
+                    Type = type,
+                    PlotArea = new ChartPlotArea
+                    {
+                        StockSettings = new StockSettings
+                        {
+                            ShowDropLines = true,
+                            ShowHighLowLines = true,
+                            ShowOpenCloseBars = true,
+                            UpBarColor = ChartColor.Green,
+                            DownBarColor = ChartColor.Red,
+                            HighLowLineColor = ChartColor.Black
+                        }
+                    },
+                    Series = new List<ChartSeries>
+                    {
+                        new()
+                        {
+                            Name = "StockSeries",
+                            SeriesIndex = 0
+                        }
+                    }
+                };
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 0);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
+
+        [Fact]
+        public void ChartWriter_WritesStockChartWithCustomColors()
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 16384);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = "StockChart",
+                    Type = ChartType.StockOHLC,
+                    PlotArea = new ChartPlotArea
+                    {
+                        StockSettings = new StockSettings
+                        {
+                            ShowDropLines = false,
+                            ShowHighLowLines = true,
+                            ShowOpenCloseBars = true,
+                            UpBarColor = new ChartColor(0, 255, 0),
+                            DownBarColor = new ChartColor(255, 0, 0),
+                            HighLowLineColor = new ChartColor(128, 128, 128)
+                        }
+                    },
+                    Series = new List<ChartSeries>
+                    {
+                        new() { Name = "StockSeries", SeriesIndex = 0 }
+                    }
+                };
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 0);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
+
+        // 曲面图测试
+        [Fact]
+        public void SurfaceViewSettings_DefaultValues()
+        {
+            var settings = new SurfaceViewSettings();
+
+            Assert.Equal(15, settings.RotationX);
+            Assert.Equal(20, settings.RotationY);
+            Assert.Equal(30, settings.Perspective);
+            Assert.Equal(100, settings.HeightPercent);
+            Assert.Equal(100, settings.DepthPercent);
+            Assert.True(settings.RightAngleAxes);
+            Assert.True(settings.AutoScaling);
+            Assert.Equal(0, settings.WallThickness);
+            Assert.Equal(0, settings.FloorThickness);
+        }
+
+        [Theory]
+        [InlineData(ChartType.Surface)]
+        [InlineData(ChartType.SurfaceWireframe)]
+        public void ChartWriter_WritesSurfaceCharts(ChartType type)
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 16384);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = "SurfaceChart",
+                    Type = type,
+                    PlotArea = new ChartPlotArea
+                    {
+                        SurfaceViewSettings = new SurfaceViewSettings
+                        {
+                            RotationX = 30,
+                            RotationY = 45,
+                            Perspective = 40,
+                            HeightPercent = 80,
+                            DepthPercent = 90,
+                            RightAngleAxes = false,
+                            AutoScaling = true,
+                            WallThickness = 1,
+                            FloorThickness = 1
+                        }
+                    },
+                    Series = new List<ChartSeries>
+                    {
+                        new()
+                        {
+                            Name = "SurfaceSeries",
+                            SeriesIndex = 0,
+                            FillColor = ChartColor.Blue
+                        }
+                    }
+                };
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 0);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
+
+        [Fact]
+        public void ChartWriter_WritesWireframeSurfaceChart()
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 16384);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = "WireframeSurfaceChart",
+                    Type = ChartType.SurfaceWireframe,
+                    PlotArea = new ChartPlotArea
+                    {
+                        SurfaceViewSettings = new SurfaceViewSettings
+                        {
+                            RotationX = 45,
+                            RotationY = 30,
+                            Perspective = 50,
+                            RightAngleAxes = true,
+                            AutoScaling = true
+                        }
+                    },
+                    Series = new List<ChartSeries>
+                    {
+                        new()
+                        {
+                            Name = "WireframeSeries",
+                            SeriesIndex = 0,
+                            LineStyle = LineStyle.Solid,
+                            FillColor = ChartColor.Gray
+                        }
+                    }
+                };
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 0);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
+
+        // 3D形状图表测试
+        [Theory]
+        [InlineData(ChartType.ConeColumn)]
+        [InlineData(ChartType.CylinderColumn)]
+        [InlineData(ChartType.PyramidColumn)]
+        [InlineData(ChartType.ConeBar)]
+        [InlineData(ChartType.CylinderBar)]
+        [InlineData(ChartType.PyramidBar)]
+        public void ChartWriter_Writes3DShapeCharts(ChartType type)
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 16384);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = "3DShapeChart",
+                    Type = type,
+                    Series = new List<ChartSeries>
+                    {
+                        new()
+                        {
+                            Name = "3DSeries",
+                            SeriesIndex = 0,
+                            FillColor = ChartColor.Blue
+                        }
+                    }
+                };
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 0);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
+
+        // 高级图表综合测试
+        [Fact]
+        public void ChartWriter_AdvancedCharts_CompleteBubbleChart()
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 32768);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = "CompleteBubbleChart",
+                    Type = ChartType.Bubble,
+                    Title = new ChartTitle { Text = "Market Analysis" },
+                    Legend = new ChartLegend { Show = true, Position = LegendPosition.Right },
+                    PlotArea = new ChartPlotArea
+                    {
+                        X = 100, Y = 100, Width = 600, Height = 400,
+                        BubbleScale = 80,
+                        ShowNegativeBubbles = true
+                    },
+                    CategoryAxis = new ChartAxis
+                    {
+                        Type = AxisType.Value,
+                        Position = AxisPosition.Bottom,
+                        Title = "Market Share (%)",
+                        MinValue = 0,
+                        MaxValue = 100
+                    },
+                    ValueAxis = new ChartAxis
+                    {
+                        Type = AxisType.Value,
+                        Position = AxisPosition.Left,
+                        Title = "Growth Rate (%)",
+                        MinValue = -50,
+                        MaxValue = 100
+                    },
+                    Series = new List<ChartSeries>
+                    {
+                        new()
+                        {
+                            Name = "Products",
+                            SeriesIndex = 0,
+                            XValues = new ChartRange { FirstRow = 1, FirstCol = 0, LastRow = 10, LastCol = 0 },
+                            YValues = new ChartRange { FirstRow = 1, FirstCol = 1, LastRow = 10, LastCol = 1 },
+                            BubbleSizes = new ChartRange { FirstRow = 1, FirstCol = 2, LastRow = 10, LastCol = 2 },
+                            FillColor = ChartColor.Blue,
+                            BorderColor = ChartColor.DarkBlue,
+                            MarkerStyle = MarkerStyle.Circle,
+                            DataLabels = new DataLabels
+                            {
+                                Show = true,
+                                ShowValue = false,
+                                ShowSeriesName = true,
+                                Position = DataLabelPosition.Center
+                            }
+                        }
+                    }
+                };
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 200);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
+
+        [Fact]
+        public void ChartWriter_AdvancedCharts_CompleteRadarChart()
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 32768);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = "CompleteRadarChart",
+                    Type = ChartType.RadarWithMarkers,
+                    Title = new ChartTitle { Text = "Performance Metrics" },
+                    Legend = new ChartLegend { Show = true, Position = LegendPosition.Bottom },
+                    PlotArea = new ChartPlotArea
+                    {
+                        RadarStyle = RadarStyle.Marker,
+                        RadarAxisLabels = true
+                    },
+                    CategoryAxis = new ChartAxis
+                    {
+                        Type = AxisType.Category,
+                        Position = AxisPosition.Bottom
+                    },
+                    ValueAxis = new ChartAxis
+                    {
+                        Type = AxisType.Value,
+                        Position = AxisPosition.Left,
+                        MinValue = 0,
+                        MaxValue = 100
+                    },
+                    Series = new List<ChartSeries>
+                    {
+                        new()
+                        {
+                            Name = "Team A",
+                            SeriesIndex = 0,
+                            LineStyle = LineStyle.Solid,
+                            MarkerStyle = MarkerStyle.Circle,
+                            FillColor = ChartColor.Blue,
+                            BorderColor = ChartColor.DarkBlue
+                        },
+                        new()
+                        {
+                            Name = "Team B",
+                            SeriesIndex = 1,
+                            LineStyle = LineStyle.Solid,
+                            MarkerStyle = MarkerStyle.Square,
+                            FillColor = ChartColor.Red,
+                            BorderColor = ChartColor.DarkRed
+                        }
+                    }
+                };
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 200);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
+
+        [Fact]
+        public void ChartWriter_AdvancedCharts_CompleteStockChart()
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 32768);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = "CompleteStockChart",
+                    Type = ChartType.StockOHLC,
+                    Title = new ChartTitle { Text = "Stock Price History" },
+                    Legend = new ChartLegend { Show = true, Position = LegendPosition.Bottom },
+                    PlotArea = new ChartPlotArea
+                    {
+                        StockSettings = new StockSettings
+                        {
+                            ShowDropLines = true,
+                            ShowHighLowLines = true,
+                            ShowOpenCloseBars = true,
+                            UpBarColor = new ChartColor(0, 128, 0),
+                            DownBarColor = new ChartColor(255, 0, 0),
+                            HighLowLineColor = ChartColor.Black
+                        }
+                    },
+                    CategoryAxis = new ChartAxis
+                    {
+                        Type = AxisType.Category,
+                        Position = AxisPosition.Bottom,
+                        Title = "Date"
+                    },
+                    ValueAxis = new ChartAxis
+                    {
+                        Type = AxisType.Value,
+                        Position = AxisPosition.Left,
+                        Title = "Price ($)",
+                        MinValue = 0
+                    },
+                    Series = new List<ChartSeries>
+                    {
+                        new() { Name = "Open", SeriesIndex = 0 },
+                        new() { Name = "High", SeriesIndex = 1 },
+                        new() { Name = "Low", SeriesIndex = 2 },
+                        new() { Name = "Close", SeriesIndex = 3 }
+                    }
+                };
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 200);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
+
+        [Fact]
+        public void ChartWriter_AdvancedCharts_CompleteSurfaceChart()
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 32768);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = "CompleteSurfaceChart",
+                    Type = ChartType.Surface,
+                    Title = new ChartTitle { Text = "3D Data Visualization" },
+                    Legend = new ChartLegend { Show = true, Position = LegendPosition.Right },
+                    PlotArea = new ChartPlotArea
+                    {
+                        SurfaceViewSettings = new SurfaceViewSettings
+                        {
+                            RotationX = 30,
+                            RotationY = 20,
+                            Perspective = 40,
+                            HeightPercent = 80,
+                            DepthPercent = 100,
+                            RightAngleAxes = true,
+                            AutoScaling = true,
+                            WallThickness = 1,
+                            FloorThickness = 1
+                        }
+                    },
+                    CategoryAxis = new ChartAxis
+                    {
+                        Type = AxisType.Category,
+                        Position = AxisPosition.Bottom
+                    },
+                    ValueAxis = new ChartAxis
+                    {
+                        Type = AxisType.Value,
+                        Position = AxisPosition.Left
+                    },
+                    Series = new List<ChartSeries>
+                    {
+                        new()
+                        {
+                            Name = "Series1",
+                            SeriesIndex = 0,
+                            FillColor = ChartColor.Blue
+                        },
+                        new()
+                        {
+                            Name = "Series2",
+                            SeriesIndex = 1,
+                            FillColor = ChartColor.Green
+                        }
+                    }
+                };
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 200);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
+
+        // 所有高级图表类型枚举测试
+        [Theory]
+        [InlineData(ChartType.Bubble)]
+        [InlineData(ChartType.Radar)]
+        [InlineData(ChartType.RadarWithMarkers)]
+        [InlineData(ChartType.Surface)]
+        [InlineData(ChartType.SurfaceWireframe)]
+        [InlineData(ChartType.StockHLC)]
+        [InlineData(ChartType.StockOHLC)]
+        [InlineData(ChartType.StockVHLC)]
+        [InlineData(ChartType.StockVOHLC)]
+        [InlineData(ChartType.ConeColumn)]
+        [InlineData(ChartType.ConeBar)]
+        [InlineData(ChartType.CylinderColumn)]
+        [InlineData(ChartType.CylinderBar)]
+        [InlineData(ChartType.PyramidColumn)]
+        [InlineData(ChartType.PyramidBar)]
+        public void ChartWriter_WritesAllAdvancedChartTypes(ChartType type)
+        {
+            var writer = ChartWriter.CreatePooled(out var buffer, 16384);
+            try
+            {
+                var chart = new ChartData
+                {
+                    Name = $"{type}Chart",
+                    Type = type,
+                    Series = new List<ChartSeries>
+                    {
+                        new() { Name = "Series1", SeriesIndex = 0 }
+                    }
+                };
+
+                // 根据图表类型添加必要的设置
+                if (type == ChartType.Bubble)
+                {
+                    chart.PlotArea = new ChartPlotArea { BubbleScale = 100 };
+                }
+                else if (type == ChartType.Radar || type == ChartType.RadarWithMarkers)
+                {
+                    chart.PlotArea = new ChartPlotArea { RadarStyle = RadarStyle.Marker };
+                }
+                else if (type.ToString().StartsWith("Stock"))
+                {
+                    chart.PlotArea = new ChartPlotArea { StockSettings = new StockSettings() };
+                }
+                else if (type == ChartType.Surface || type == ChartType.SurfaceWireframe)
+                {
+                    chart.PlotArea = new ChartPlotArea { SurfaceViewSettings = new SurfaceViewSettings() };
+                }
+
+                var bytesWritten = writer.WriteChartStream(chart, 0);
+                Assert.True(bytesWritten > 0);
+            }
+            finally
+            {
+                writer.Dispose();
+            }
+        }
     }
 }

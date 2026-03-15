@@ -1030,4 +1030,34 @@ internal ref struct BiffWriter
         BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), 0x0000);
         _position += 2;
     }
+
+    public void WriteMsodrawingShapes(ReadOnlySpan<byte> shapeData)
+    {
+        // MSODRAWING记录 - Office绘图对象用于形状
+        const ushort msodrawingType = 0x00EC;
+
+        if (shapeData.Length <= BiffMaxRecordData)
+        {
+            WriteRecordHeader(msodrawingType, shapeData.Length);
+            shapeData.CopyTo(_buffer.Slice(_position));
+            _position += shapeData.Length;
+        }
+        else
+        {
+            // 需要分块写入
+            var offset = 0;
+            var remaining = shapeData.Length;
+
+            while (remaining > 0)
+            {
+                var chunkSize = Math.Min(BiffMaxRecordData, remaining);
+                WriteRecordHeader(msodrawingType, chunkSize);
+
+                shapeData.Slice(offset, chunkSize).CopyTo(_buffer.Slice(_position));
+                _position += chunkSize;
+                offset += chunkSize;
+                remaining -= chunkSize;
+            }
+        }
+    }
 }

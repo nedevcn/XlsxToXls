@@ -18,13 +18,14 @@ internal static partial class XlsxReader
         ConformanceLevel = ConformanceLevel.Fragment
     };
 
-    public static (List<ReadOnlyMemory<char>> SharedStrings, List<SheetData> Sheets, StylesData? Styles, List<DefinedNameInfo> DefinedNames) Read(Stream xlsxStream, Action<string>? log = null)
+    public static (List<ReadOnlyMemory<char>> SharedStrings, List<SheetData> Sheets, StylesData? Styles, List<DefinedNameInfo> DefinedNames, DocumentSecurityInfo? DocumentSecurity) Read(Stream xlsxStream, Action<string>? log = null)
     {
         using var archive = new ZipArchive(xlsxStream, ZipArchiveMode.Read, leaveOpen: true);
         var sharedStrings = ReadSharedStrings(archive);
         var (sheets, definedNames) = ReadSheetsAndDefinedNames(archive, log);
         var styles = StylesReader.Read(archive);
-        return (sharedStrings, sheets, styles, definedNames);
+        var docSecurity = DigitalSignatureReader.ReadDocumentSecurity(archive, log);
+        return (sharedStrings, sheets, styles, definedNames, docSecurity);
     }
 
     private static List<ReadOnlyMemory<char>> ReadSharedStrings(ZipArchive archive)
@@ -53,37 +54,53 @@ internal static partial class XlsxReader
     private static string? ReadSi(XmlReader reader, string ns)
     {
         if (reader.IsEmptyElement) return string.Empty;
-        var sb = new System.Text.StringBuilder();
-        while (reader.Read())
+        var sb = StringBuilderPool.Rent(256);
+        try
         {
-            if (reader.NodeType == XmlNodeType.EndElement && reader.LocalName == "si") break;
-            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "t" && reader.NamespaceURI == ns)
+            while (reader.Read())
             {
-                if (!reader.IsEmptyElement && reader.Read() && reader.NodeType == XmlNodeType.Text)
-                    sb.Append(reader.Value);
+                if (reader.NodeType == XmlNodeType.EndElement && reader.LocalName == "si") break;
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "t" && reader.NamespaceURI == ns)
+                {
+                    if (!reader.IsEmptyElement && reader.Read() && reader.NodeType == XmlNodeType.Text)
+                        sb.Append(reader.Value);
+                }
+                else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "r" && reader.NamespaceURI == ns)
+                {
+                    sb.Append(ReadRichTextRun(reader, ns));
+                }
             }
-            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "r" && reader.NamespaceURI == ns)
-            {
-                sb.Append(ReadRichTextRun(reader, ns));
-            }
+            return StringBuilderPool.ToStringAndReturn(sb);
         }
-        return sb.ToString();
+        catch
+        {
+            StringBuilderPool.Return(sb);
+            throw;
+        }
     }
 
     private static string ReadRichTextRun(XmlReader reader, string ns)
     {
         if (reader.IsEmptyElement) return string.Empty;
-        var sb = new System.Text.StringBuilder();
-        while (reader.Read())
+        var sb = StringBuilderPool.Rent(128);
+        try
         {
-            if (reader.NodeType == XmlNodeType.EndElement && reader.LocalName == "r") break;
-            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "t" && reader.NamespaceURI == ns)
+            while (reader.Read())
             {
-                if (!reader.IsEmptyElement && reader.Read() && reader.NodeType == XmlNodeType.Text)
-                    sb.Append(reader.Value);
+                if (reader.NodeType == XmlNodeType.EndElement && reader.LocalName == "r") break;
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "t" && reader.NamespaceURI == ns)
+                {
+                    if (!reader.IsEmptyElement && reader.Read() && reader.NodeType == XmlNodeType.Text)
+                        sb.Append(reader.Value);
+                }
             }
+            return StringBuilderPool.ToStringAndReturn(sb);
         }
-        return sb.ToString();
+        catch
+        {
+            StringBuilderPool.Return(sb);
+            throw;
+        }
     }
 
     private static (List<SheetData> Sheets, List<DefinedNameInfo> DefinedNames) ReadSheetsAndDefinedNames(ZipArchive archive, Action<string>? log = null)
@@ -96,10 +113,10 @@ internal static partial class XlsxReader
             var name = sheetId.Name;
             var rId = sheetId.RId;
             if (!rels.TryGetValue(rId, out var path)) continue;
-            var (rows, colInfos, mergeRanges, freezePane, rowBreaks, colBreaks, pageSetup, pageMargins, printOptions, headerFooter, hyperlinks, dataValidations, conditionalFormats) = ReadWorksheet(archive, path);
+            var (rows, colInfos, mergeRanges, freezePane, rowBreaks, colBreaks, pageSetup, pageMargins, printOptions, headerFooter, hyperlinks, dataValidations, conditionalFormats, sheetProtection, shapes) = ReadWorksheet(archive, path, log);
             var comments = ReadSheetComments(archive, path);
             var charts = ChartReader.ReadCharts(archive, path, log);
-            list.Add(new SheetData(name, rows, colInfos, mergeRanges, freezePane, rowBreaks, colBreaks, pageSetup, pageMargins, printOptions, headerFooter, hyperlinks, comments, dataValidations, conditionalFormats, sheetId.Visibility, charts));
+            list.Add(new SheetData(name, rows, colInfos, mergeRanges, freezePane, rowBreaks, colBreaks, pageSetup, pageMargins, printOptions, headerFooter, hyperlinks, comments, dataValidations, conditionalFormats, sheetId.Visibility, charts, sheetProtection, shapes));
         }
         return (list, definedNames);
     }
@@ -225,10 +242,10 @@ internal static partial class XlsxReader
         return firstRow <= lastRow && firstCol <= lastCol;
     }
 
-    private static (List<RowData> Rows, List<ColInfo> ColInfos, List<MergeRange> MergeRanges, FreezePaneInfo? FreezePane, List<int> RowBreaks, List<int> ColBreaks, PageSetupInfo? PageSetup, PageMarginsInfo? PageMargins, PrintOptionsInfo? PrintOptions, HeaderFooterInfo? HeaderFooter, List<HyperlinkInfo> Hyperlinks, List<DataValidationInfo> DataValidations, List<ConditionalFormatInfo> ConditionalFormats) ReadWorksheet(ZipArchive archive, string path)
+    private static (List<RowData> Rows, List<ColInfo> ColInfos, List<MergeRange> MergeRanges, FreezePaneInfo? FreezePane, List<int> RowBreaks, List<int> ColBreaks, PageSetupInfo? PageSetup, PageMarginsInfo? PageMargins, PrintOptionsInfo? PrintOptions, HeaderFooterInfo? HeaderFooter, List<HyperlinkInfo> Hyperlinks, List<DataValidationInfo> DataValidations, List<ConditionalFormatInfo> ConditionalFormats, SheetProtectionInfo? SheetProtection, List<ShapeInfo> Shapes) ReadWorksheet(ZipArchive archive, string path, Action<string>? log)
     {
         var entry = archive.GetEntry(path) ?? archive.GetEntry("xl/" + path);
-        if (entry == null) return (new List<RowData>(), new List<ColInfo>(), new List<MergeRange>(), null, new List<int>(), new List<int>(), null, null, null, null, new List<HyperlinkInfo>(), new List<DataValidationInfo>(), new List<ConditionalFormatInfo>());
+        if (entry == null) return (new List<RowData>(), new List<ColInfo>(), new List<MergeRange>(), null, new List<int>(), new List<int>(), null, null, null, null, new List<HyperlinkInfo>(), new List<DataValidationInfo>(), new List<ConditionalFormatInfo>(), null, new List<ShapeInfo>());
 
         var rows = new List<RowData>();
         var colInfos = new List<ColInfo>();
@@ -244,6 +261,7 @@ internal static partial class XlsxReader
         PageMarginsInfo? pageMargins = null;
         PrintOptionsInfo? printOptions = null;
         HeaderFooterInfo? headerFooter = null;
+        SheetProtectionInfo? sheetProtection = null;
         var inRowBreaks = false;
         var inColBreaks = false;
 
@@ -331,6 +349,13 @@ internal static partial class XlsxReader
                 var dv = ReadDataValidation(reader, ns);
                 if (dv.HasValue && dv.Value.Ranges.Count > 0)
                     dataValidations.Add(dv.Value);
+            }
+            // Sheet protection
+            else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "sheetProtection" && reader.NamespaceURI == ns)
+            {
+                var protection = SheetProtectionReader.ReadSheetProtection(reader, ns);
+                if (protection.HasValue)
+                    sheetProtection = protection.Value;
             }
             // Conditional formatting is documented as not supported; we intentionally skip it.
             else if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "conditionalFormatting" && reader.NamespaceURI == ns)
@@ -421,7 +446,11 @@ internal static partial class XlsxReader
             currentRow = currentRow.Value with { Cells = cells.ToArray() };
             rows.Add(currentRow.Value);
         }
-        return (rows, colInfos, mergeRanges, freezePane, rowBreaks, colBreaks, pageSetup, pageMargins, printOptions, headerFooter, hyperlinks, dataValidations, conditionalFormats);
+
+        // Read shapes from drawing
+        var shapes = ShapeReader.ReadShapes(archive, path, log);
+
+        return (rows, colInfos, mergeRanges, freezePane, rowBreaks, colBreaks, pageSetup, pageMargins, printOptions, headerFooter, hyperlinks, dataValidations, conditionalFormats, sheetProtection, shapes);
     }
 
     private static DataValidationInfo? ReadDataValidation(XmlReader reader, string ns)
@@ -914,7 +943,9 @@ internal record struct SheetData(
     List<DataValidationInfo> DataValidations,
     List<ConditionalFormatInfo> ConditionalFormats,
     byte Visibility,
-    List<ChartData> Charts);
+    List<ChartData> Charts,
+    SheetProtectionInfo? SheetProtection,
+    List<ShapeInfo> Shapes);
 
 internal record struct DataValidationInfo(
     List<(int FirstRow, int FirstCol, int LastRow, int LastCol)> Ranges,
@@ -942,6 +973,24 @@ internal record struct ConditionalFormatInfo(
 internal record struct CommentInfo(int Row, int Col, string Author, string Text);
 internal record struct HyperlinkInfo(int FirstRow, int FirstCol, int LastRow, int LastCol, string Url);
 internal record struct FreezePaneInfo(int ColSplit, int RowSplit, int TopRowVisible, int LeftColVisible);
+internal record struct SheetProtectionInfo(
+    bool IsProtected,
+    ushort PasswordHash,
+    bool AllowEditObjects,
+    bool AllowEditScenarios,
+    bool AllowFormatCells,
+    bool AllowFormatColumns,
+    bool AllowFormatRows,
+    bool AllowInsertColumns,
+    bool AllowInsertRows,
+    bool AllowInsertHyperlinks,
+    bool AllowDeleteColumns,
+    bool AllowDeleteRows,
+    bool AllowSelectLockedCells,
+    bool AllowSort,
+    bool AllowAutoFilter,
+    bool AllowPivotTables,
+    bool AllowSelectUnlockedCells);
 internal record struct PageSetupInfo(bool Landscape, int Scale, int FitToWidth, int FitToHeight, int StartPageNumber);
 internal record struct PageMarginsInfo(double Left, double Right, double Top, double Bottom, double Header, double Footer);
 internal record struct PrintOptionsInfo(bool PrintGridLines, bool PrintHeadings, bool CenterHorizontally, bool CenterVertically, bool BlackAndWhite, bool Draft);

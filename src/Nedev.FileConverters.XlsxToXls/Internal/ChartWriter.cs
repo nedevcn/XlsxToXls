@@ -84,9 +84,19 @@ internal ref struct ChartWriter
         {
             WriteAxis(chart.ValueAxis);
         }
+        if (chart.SecondaryValueAxis != null)
+        {
+            WriteAxis(chart.SecondaryValueAxis);
+        }
 
         // 写入系列到轴的关联
         WriteAxisLink();
+
+        // 写入数据表
+        if (chart.DataTable?.Show == true)
+        {
+            WriteDataTable(chart.DataTable);
+        }
 
         WriteEof();
         return _position;
@@ -122,21 +132,117 @@ internal ref struct ChartWriter
             ChartType.Pie => 0x1019,
             ChartType.Scatter => 0x101B,
             ChartType.Radar => 0x103C,
+            ChartType.RadarWithMarkers => 0x103C,
             ChartType.Column => 0x1017, // 柱状图使用Bar记录，通过标志位区分
             ChartType.Doughnut => 0x102C,
+            ChartType.Bubble => 0x103E,
+            ChartType.Surface => 0x103F,
+            ChartType.SurfaceWireframe => 0x103F,
+            ChartType.StockHLC => 0x1042,
+            ChartType.StockOHLC => 0x1042,
+            ChartType.StockVHLC => 0x1042,
+            ChartType.StockVOHLC => 0x1042,
+            ChartType.ConeColumn => 0x1017,
+            ChartType.ConeBar => 0x1017,
+            ChartType.CylinderColumn => 0x1017,
+            ChartType.CylinderBar => 0x1017,
+            ChartType.PyramidColumn => 0x1017,
+            ChartType.PyramidBar => 0x1017,
             _ => 0x1017
         };
 
         WriteRecordHeader((ushort)recordType, 6);
 
         // 图表类型标志
-        var flags = type == ChartType.Column ? 0x0001 : 0x0000;
+        var flags = type switch
+        {
+            ChartType.Column => 0x0001,
+            ChartType.ConeColumn => 0x0001,
+            ChartType.CylinderColumn => 0x0001,
+            ChartType.PyramidColumn => 0x0001,
+            ChartType.ConeBar => 0x0002,
+            ChartType.CylinderBar => 0x0002,
+            ChartType.PyramidBar => 0x0002,
+            ChartType.SurfaceWireframe => 0x0001,
+            _ => 0x0000
+        };
         BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)flags);
         _position += 2;
 
         // 预留字段
         BinaryPrimitives.WriteUInt32LittleEndian(_buffer.Slice(_position), 0);
         _position += 4;
+
+        // 写入高级图表类型特定设置
+        WriteAdvancedChartSettings(type);
+    }
+
+    private void WriteAdvancedChartSettings(ChartType type)
+    {
+        switch (type)
+        {
+            case ChartType.Bubble:
+                WriteBubbleSettings();
+                break;
+            case ChartType.Radar:
+            case ChartType.RadarWithMarkers:
+                WriteRadarSettings();
+                break;
+            case ChartType.StockHLC:
+            case ChartType.StockOHLC:
+            case ChartType.StockVHLC:
+            case ChartType.StockVOHLC:
+                WriteStockSettings();
+                break;
+            case ChartType.Surface:
+            case ChartType.SurfaceWireframe:
+                WriteSurfaceSettings();
+                break;
+        }
+    }
+
+    private void WriteBubbleSettings()
+    {
+        // BUBBLESIZE记录 (0x1043)
+        WriteRecordHeader(0x1043, 4);
+
+        // 气泡缩放比例 (默认100%)
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), 100);
+        _position += 2;
+
+        // 标志位
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), 0);
+        _position += 2;
+    }
+
+    private void WriteRadarSettings()
+    {
+        // RADARFLAGS记录 (0x1044)
+        WriteRecordHeader(0x1044, 2);
+
+        // 雷达图标志
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), 0);
+        _position += 2;
+    }
+
+    private void WriteStockSettings()
+    {
+        // STOCKFLAGS记录 (0x1045)
+        WriteRecordHeader(0x1045, 4);
+
+        // 股价图标志
+        BinaryPrimitives.WriteUInt32LittleEndian(_buffer.Slice(_position), 0x0001);
+        _position += 4;
+    }
+
+    private void WriteSurfaceSettings()
+    {
+        // SURFACEFLAGS记录 (0x1046)
+        WriteRecordHeader(0x1046, 2);
+
+        // 曲面图标志
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), 0);
+        _position += 2;
     }
 
     private void WriteChartTitle(string title)
@@ -185,6 +291,144 @@ internal ref struct ChartWriter
         _position += 4;
         BinaryPrimitives.WriteUInt32LittleEndian(_buffer.Slice(_position), (uint)chart.PlotArea.Height);
         _position += 4;
+
+        // 写入高级图表类型的绘图区设置
+        WritePlotAreaAdvancedSettings(chart);
+    }
+
+    private void WritePlotAreaAdvancedSettings(ChartData chart)
+    {
+        // 气泡图设置
+        if (chart.Type == ChartType.Bubble)
+        {
+            WriteBubblePlotSettings(chart.PlotArea);
+        }
+
+        // 雷达图设置
+        if (chart.Type == ChartType.Radar || chart.Type == ChartType.RadarWithMarkers)
+        {
+            WriteRadarPlotSettings(chart.PlotArea);
+        }
+
+        // 股价图设置
+        if (chart.PlotArea.StockSettings != null)
+        {
+            WriteStockPlotSettings(chart.PlotArea.StockSettings);
+        }
+
+        // 曲面图设置
+        if (chart.PlotArea.SurfaceViewSettings != null)
+        {
+            WriteSurfacePlotSettings(chart.PlotArea.SurfaceViewSettings);
+        }
+    }
+
+    private void WriteBubblePlotSettings(ChartPlotArea plotArea)
+    {
+        // BUBBLEPLOTSETTINGS记录 (0x1048)
+        WriteRecordHeader(0x1048, 8);
+
+        // 气泡缩放比例
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)plotArea.BubbleScale);
+        _position += 2;
+
+        // 是否显示负值气泡
+        _buffer[_position++] = (byte)(plotArea.ShowNegativeBubbles ? 1 : 0);
+
+        // 预留
+        _buffer[_position++] = 0;
+        _buffer[_position++] = 0;
+        _buffer[_position++] = 0;
+
+        // 预留
+        BinaryPrimitives.WriteUInt32LittleEndian(_buffer.Slice(_position), 0);
+        _position += 4;
+    }
+
+    private void WriteRadarPlotSettings(ChartPlotArea plotArea)
+    {
+        // RADARPLOTSETTINGS记录 (0x1049)
+        WriteRecordHeader(0x1049, 4);
+
+        // 雷达图样式
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)plotArea.RadarStyle);
+        _position += 2;
+
+        // 是否显示轴标签
+        _buffer[_position++] = (byte)(plotArea.RadarAxisLabels ? 1 : 0);
+
+        // 预留
+        _buffer[_position++] = 0;
+    }
+
+    private void WriteStockPlotSettings(StockSettings settings)
+    {
+        // STOCKPLOTSETTINGS记录 (0x104A)
+        WriteRecordHeader(0x104A, 16);
+
+        // 标志位
+        var flags = 0u;
+        if (settings.ShowDropLines) flags |= 0x0001;
+        if (settings.ShowHighLowLines) flags |= 0x0002;
+        if (settings.ShowOpenCloseBars) flags |= 0x0004;
+        BinaryPrimitives.WriteUInt32LittleEndian(_buffer.Slice(_position), flags);
+        _position += 4;
+
+        // 上涨颜色 (RGB)
+        var upRgb = (uint)((settings.UpBarColor.R << 16) | (settings.UpBarColor.G << 8) | settings.UpBarColor.B);
+        BinaryPrimitives.WriteUInt32LittleEndian(_buffer.Slice(_position), upRgb);
+        _position += 4;
+
+        // 下跌颜色 (RGB)
+        var downRgb = (uint)((settings.DownBarColor.R << 16) | (settings.DownBarColor.G << 8) | settings.DownBarColor.B);
+        BinaryPrimitives.WriteUInt32LittleEndian(_buffer.Slice(_position), downRgb);
+        _position += 4;
+
+        // 高低线颜色 (RGB)
+        var hlRgb = (uint)((settings.HighLowLineColor.R << 16) | (settings.HighLowLineColor.G << 8) | settings.HighLowLineColor.B);
+        BinaryPrimitives.WriteUInt32LittleEndian(_buffer.Slice(_position), hlRgb);
+        _position += 4;
+    }
+
+    private void WriteSurfacePlotSettings(SurfaceViewSettings settings)
+    {
+        // SURFACEPLOTSETTINGS记录 (0x104B)
+        WriteRecordHeader(0x104B, 20);
+
+        // X轴旋转角度
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)settings.RotationX);
+        _position += 2;
+
+        // Y轴旋转角度
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)settings.RotationY);
+        _position += 2;
+
+        // 透视角度
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)settings.Perspective);
+        _position += 2;
+
+        // 高度百分比
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)settings.HeightPercent);
+        _position += 2;
+
+        // 深度百分比
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)settings.DepthPercent);
+        _position += 2;
+
+        // 标志位
+        var flags = 0u;
+        if (settings.RightAngleAxes) flags |= 0x0001;
+        if (settings.AutoScaling) flags |= 0x0002;
+        BinaryPrimitives.WriteUInt32LittleEndian(_buffer.Slice(_position), flags);
+        _position += 4;
+
+        // 墙壁厚度
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)settings.WallThickness);
+        _position += 2;
+
+        // 地板厚度
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)settings.FloorThickness);
+        _position += 2;
     }
 
     private void WriteSeries(ChartSeries series, int seriesIndex)
@@ -217,6 +461,24 @@ internal ref struct ChartWriter
         if (series.Values != null)
         {
             WriteValueRange(series.Values);
+        }
+
+        // X值（散点图和气泡图）
+        if (series.XValues != null)
+        {
+            WriteXValueRange(series.XValues);
+        }
+
+        // Y值（散点图和气泡图）
+        if (series.YValues != null)
+        {
+            WriteYValueRange(series.YValues);
+        }
+
+        // 气泡大小（气泡图）
+        if (series.BubbleSizes != null)
+        {
+            WriteBubbleSizeRange(series.BubbleSizes);
         }
 
         // 数据标签
@@ -587,6 +849,75 @@ internal ref struct ChartWriter
         _position += 2;
     }
 
+    private void WriteXValueRange(ChartRange range)
+    {
+        // XVALUES记录 (0x1014) - 用于散点图和气泡图
+        WriteRecordHeader(0x1014, 12);
+
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)range.FirstRow);
+        _position += 2;
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)range.LastRow);
+        _position += 2;
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)range.FirstCol);
+        _position += 2;
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)range.LastCol);
+        _position += 2;
+
+        // 引用类型标志
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), 0x0001);
+        _position += 2;
+
+        // 工作表索引
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), 0);
+        _position += 2;
+    }
+
+    private void WriteYValueRange(ChartRange range)
+    {
+        // YVALUES记录 (0x1015) - 用于散点图和气泡图
+        WriteRecordHeader(0x1015, 12);
+
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)range.FirstRow);
+        _position += 2;
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)range.LastRow);
+        _position += 2;
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)range.FirstCol);
+        _position += 2;
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)range.LastCol);
+        _position += 2;
+
+        // 引用类型标志
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), 0x0001);
+        _position += 2;
+
+        // 工作表索引
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), 0);
+        _position += 2;
+    }
+
+    private void WriteBubbleSizeRange(ChartRange range)
+    {
+        // BUBBLESIZERANGE记录 (0x1047) - 用于气泡图
+        WriteRecordHeader(0x1047, 12);
+
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)range.FirstRow);
+        _position += 2;
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)range.LastRow);
+        _position += 2;
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)range.FirstCol);
+        _position += 2;
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), (ushort)range.LastCol);
+        _position += 2;
+
+        // 引用类型标志
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), 0x0001);
+        _position += 2;
+
+        // 工作表索引
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), 0);
+        _position += 2;
+    }
+
     private void WriteAxis(ChartAxis axis)
     {
         // AXIS记录 (0x101D)
@@ -658,6 +989,33 @@ internal ref struct ChartWriter
         WriteRecordHeader(0x1026, 2);
         BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), 0);
         _position += 2;
+    }
+
+    private void WriteDataTable(ChartDataTable dataTable)
+    {
+        // DATATABLE记录 (0x1036)
+        WriteRecordHeader(0x1036, 12);
+
+        // 标志位
+        var flags = 0u;
+        if (dataTable.ShowLegendKeys) flags |= 0x0001;
+        if (dataTable.HasHorizontalBorder) flags |= 0x0002;
+        if (dataTable.HasVerticalBorder) flags |= 0x0004;
+        if (dataTable.HasOutlineBorder) flags |= 0x0008;
+        BinaryPrimitives.WriteUInt32LittleEndian(_buffer.Slice(_position), flags);
+        _position += 4;
+
+        // 字体大小（以1/20点为单位）
+        var fontSize = (ushort)(dataTable.FontSize * 20);
+        BinaryPrimitives.WriteUInt16LittleEndian(_buffer.Slice(_position), fontSize);
+        _position += 2;
+
+        // 预留字段
+        BinaryPrimitives.WriteUInt32LittleEndian(_buffer.Slice(_position), 0);
+        _position += 4;
+
+        // 数据表结束标记
+        WriteRecordHeader(0x1037, 0);
     }
 
     private void WriteEof()
